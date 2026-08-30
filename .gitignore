@@ -1,0 +1,17 @@
+# Lixo do sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+*.swp
+*.swo
+*~
+.idea/
+
+# Logs e temporários
+*.log
+node_modules/
+dist/
+build/
+.cache/

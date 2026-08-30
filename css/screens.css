@@ -1,0 +1,275 @@
+/* ============================================================
+   screens.css — Santuário, Invocação, Coleção, Esquadrão, Mapa,
+   Evento, Loja, Recompensas
+   ============================================================ */
+
+/* ---------- Santuário (menu) ---------- */
+.menu {
+  min-height: 78vh;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 40px;
+  align-items: center;
+}
+.menu__hero { max-width: 40ch; }
+.menu__logo {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(2.6rem, 7vw, 4.6rem);
+  line-height: 0.95;
+  background: linear-gradient(180deg, #fff 10%, var(--gold) 55%, var(--rubro) 120%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 6px 40px rgba(255, 77, 94, 0.35));
+}
+.menu__tag {
+  font-family: var(--font-display);
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  color: var(--rubro);
+  margin: 14px 0 22px;
+}
+.menu__desc { color: var(--text-dim); line-height: 1.6; margin-bottom: 30px; }
+.menu__actions { display: flex; flex-direction: column; gap: 12px; max-width: 320px; }
+
+.menu__panel { padding: 22px; }
+.menu__stat-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed var(--line-soft); }
+.menu__stat-row:last-child { border-bottom: 0; }
+.menu__stat-row b { font-family: var(--font-display); color: var(--gold); }
+
+.menu__sigil {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  font-size: 8rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, rgba(255,77,94,0.25), transparent 65%);
+  animation: pulse 4s ease-in-out infinite;
+}
+@keyframes pulse { 50% { transform: scale(1.05); filter: drop-shadow(0 0 30px var(--rubro-glow)); } }
+
+@media (max-width: 820px) {
+  .menu { grid-template-columns: 1fr; text-align: center; }
+  .menu__hero { max-width: none; }
+  .menu__actions { margin: 0 auto; }
+  .menu__side { display: none; }
+}
+
+/* ---------- Invocação (gacha) ---------- */
+.summon {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 28px;
+}
+@media (max-width: 900px) { .summon { grid-template-columns: 1fr; } }
+
+.summon__stage {
+  position: relative;
+  min-height: 440px;
+  border-radius: var(--radius);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(600px 300px at 50% 120%, rgba(179,23,44,0.4), transparent 70%),
+    linear-gradient(180deg, var(--bg-deep), var(--bg-void));
+  border: 1px solid var(--line-soft);
+}
+.summon__altar { font-size: 8rem; filter: drop-shadow(0 10px 30px var(--rubro-glow)); animation: pulse 5s ease-in-out infinite; }
+.summon__hint { position: absolute; bottom: 18px; color: var(--text-mute); font-size: 0.85rem; }
+
+.summon__panel { padding: 20px; align-self: start; position: sticky; top: 76px; }
+.summon__rates { margin: 14px 0; font-size: 0.85rem; }
+.summon__rates div { display: flex; justify-content: space-between; padding: 4px 0; }
+.pity-track { margin-top: 6px; }
+.pity-track small { color: var(--text-mute); }
+
+/* animação de revelação */
+.reveal {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 18px;
+  background: radial-gradient(circle at 50% 50%, rgba(20,10,30,0.9), rgba(10,7,16,0.98));
+}
+.reveal__cards { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 90%; }
+.reveal-card {
+  width: 128px;
+  border-radius: var(--radius-sm);
+  padding: 14px 10px;
+  text-align: center;
+  background: linear-gradient(180deg, var(--bg-panel-2), var(--bg-deep));
+  border: 1px solid var(--rar, var(--line));
+  box-shadow: 0 0 26px -6px var(--rar, transparent);
+  animation: card-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.4) backwards;
+}
+.reveal-card:nth-child(2) { animation-delay: 0.08s; }
+.reveal-card:nth-child(3) { animation-delay: 0.16s; }
+.reveal-card:nth-child(4) { animation-delay: 0.24s; }
+.reveal-card:nth-child(5) { animation-delay: 0.32s; }
+.reveal-card .emoji { font-size: 2.8rem; }
+.reveal-card.is-new::after { content: "NOVO"; display: block; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.12em; color: var(--nature); margin-top: 4px; }
+@keyframes card-pop { from { opacity: 0; transform: translateY(28px) scale(0.85) rotate(-4deg); } }
+
+.flash-5 { animation: flash5 0.7s ease; }
+@keyframes flash5 { 40% { box-shadow: 0 0 0 40vmax rgba(255, 206, 107, 0.18) inset; } }
+
+/* ---------- Coleção / Esquadrão ---------- */
+.roster-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.chip {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-panel);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-dim);
+}
+.chip.is-active { background: var(--rubro); border-color: var(--rubro); color: #fff; }
+
+.squad-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.squad-slot {
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius);
+  min-height: 92px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color 0.16s, background 0.16s;
+}
+.squad-slot:hover { border-color: var(--rubro); background: var(--bg-panel); }
+.squad-slot.is-filled { border-style: solid; border-color: var(--line-soft); background: var(--bg-panel); }
+.squad-slot .emoji { font-size: 2rem; }
+.squad-slot small { display: block; color: var(--text-mute); }
+
+/* ficha detalhada de herói (modal) */
+.hero-sheet__head { display: flex; gap: 16px; align-items: center; margin-bottom: 18px; }
+.hero-sheet__portrait { font-size: 3.4rem; width: 84px; height: 84px; display: grid; place-items: center; border-radius: var(--radius-sm); background: var(--bg-void); border: 1px solid var(--line-soft); }
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }
+.stat-box { background: var(--bg-void); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 10px; text-align: center; }
+.stat-box b { font-family: var(--font-display); font-size: 1.3rem; display: block; color: var(--gold); }
+.stat-box span { font-size: 0.72rem; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.1em; }
+.skill-line { padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.skill-line b { color: var(--rubro); font-family: var(--font-display); }
+
+/* ---------- Mapa Roguelike ---------- */
+.run-hud {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  border: 1px solid var(--line-soft);
+}
+.run-hud__party { display: flex; gap: 8px; }
+.run-hud__unit {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 9px; border-radius: 999px;
+  background: var(--bg-void); border: 1px solid var(--line-soft);
+  font-size: 0.8rem;
+}
+.run-hud__unit.is-down { opacity: 0.4; filter: grayscale(1); }
+.run-hud__hp { font-variant-numeric: tabular-nums; color: var(--nature); }
+.run-hud__hp.is-low { color: var(--rubro); }
+.run-hud__relics { margin-left: auto; display: flex; gap: 5px; font-size: 1.1rem; }
+
+.map-scroll {
+  position: relative;
+  overflow-x: auto;
+  padding: 20px 8px 28px;
+  border-radius: var(--radius);
+  background:
+    radial-gradient(700px 400px at 80% 0%, rgba(179,23,44,0.18), transparent 60%),
+    linear-gradient(180deg, var(--bg-deep), var(--bg-void));
+  border: 1px solid var(--line-soft);
+}
+.map-board { position: relative; margin: 0 auto; }
+.map-edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.map-edges path { stroke: var(--line); stroke-width: 2; fill: none; }
+.map-edges path.is-open { stroke: var(--gold); stroke-dasharray: 5 5; animation: dash 20s linear infinite; }
+@keyframes dash { to { stroke-dashoffset: -200; } }
+
+.map-node {
+  position: absolute;
+  width: 58px; height: 58px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  background: var(--bg-panel-2);
+  border: 2px solid var(--line);
+  cursor: default;
+  transition: transform 0.14s, box-shadow 0.18s, border-color 0.18s;
+}
+.map-node small {
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  margin-top: 5px; font-size: 0.62rem; white-space: nowrap; color: var(--text-mute);
+}
+.map-node.is-reachable { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(255,206,107,0.12), 0 0 20px -2px var(--gold); cursor: pointer; animation: pulse 2.5s ease-in-out infinite; }
+.map-node.is-reachable:hover { transform: translate(-50%, -50%) scale(1.12); }
+.map-node.is-current { border-color: var(--rubro); box-shadow: var(--ring); }
+.map-node.is-cleared { opacity: 0.45; }
+.map-node.type-boss { width: 74px; height: 74px; font-size: 2rem; border-color: var(--rubro-deep); background: linear-gradient(180deg, #3a1020, var(--bg-deep)); }
+.map-node.type-elite { border-color: #c86bff; }
+
+/* ---------- Evento / Recompensa / Loja ---------- */
+.narrative {
+  max-width: 640px;
+  margin: 0 auto;
+}
+.narrative__scene {
+  font-size: 4rem;
+  text-align: center;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.5));
+}
+.narrative__text { color: var(--text-dim); line-height: 1.7; font-size: 1.02rem; white-space: pre-line; }
+.choice-list { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
+.choice {
+  text-align: left;
+  padding: 15px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--bg-panel);
+  cursor: pointer;
+  transition: border-color 0.16s, transform 0.12s, background 0.16s;
+}
+.choice:hover { border-color: var(--rubro); transform: translateX(4px); background: var(--bg-panel-2); }
+.choice b { font-family: var(--font-display); display: block; margin-bottom: 3px; }
+.choice small { color: var(--text-mute); }
+
+.reward-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-top: 8px; }
+.reward-card {
+  padding: 20px 16px;
+  text-align: center;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--bg-panel-2), var(--bg-deep));
+  cursor: pointer;
+  transition: transform 0.14s, border-color 0.16s, box-shadow 0.18s;
+}
+.reward-card:hover { transform: translateY(-5px); border-color: var(--gold); box-shadow: var(--shadow); }
+.reward-card .emoji { font-size: 2.6rem; display: block; margin-bottom: 8px; }
+.reward-card b { font-family: var(--font-display); }
+.reward-card p { color: var(--text-dim); font-size: 0.84rem; margin-top: 6px; line-height: 1.45; }
+
+.shop-item { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--bg-panel); }
+.shop-item .emoji { font-size: 2rem; }
+.shop-item .grow { flex: 1; }
+.shop-item .price { color: var(--gold); font-weight: 700; white-space: nowrap; }
+.shop-item.is-sold { opacity: 0.4; }

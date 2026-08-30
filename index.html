@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>As Aventuras de Ivad — Selo Primordial</title>
+  <meta name="description" content="Gacha tático em grid no universo de As Aventuras de Ivad." />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/screens.css" />
+  <link rel="stylesheet" href="css/battle.css" />
+</head>
+<body>
+  <div id="stars" aria-hidden="true"></div>
+
+  <header id="topbar" hidden>
+    <button class="topbar__home" data-nav="menu" title="Voltar ao Santuário">✦ Ivad</button>
+    <div class="topbar__wallet">
+      <span class="wallet__item" title="Sementes Primordiais — moeda de Invocação">
+        <span class="wallet__icon">🌱</span><span id="wallet-sementes">0</span>
+      </span>
+      <span class="wallet__item wallet__item--run" id="wallet-fragmentos-wrap" title="Fragmentos de Magma — ouro da run">
+        <span class="wallet__icon">🔥</span><span id="wallet-fragmentos">0</span>
+      </span>
+    </div>
+  </header>
+
+  <main id="app" aria-live="polite"></main>
+
+  <div id="toast-container" aria-live="assertive"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

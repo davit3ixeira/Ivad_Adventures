@@ -1,12 +1,15 @@
 /**
  * battle.js (UI) — tela de combate tático.
  *
- * Ataque em 1–2 toques:
- *   • toque no seu herói        → azul = mover, alvos com ⚔ pulsando = atacar
- *   • toque num alvo com ⚔      → o herói anda até a melhor casa e ataca
- *   • toque numa casa azul      → só move (dá pra "Voltar")
- *   • toque no próprio herói    → aguarda
- * Especial: botão ✨ quando carregado → mira (se precisar) → banner + efeito na tela.
+ * Fluxo:
+ *   • toque no herói           → azul = mover (dentro do alcance!), ⚔ = alvos
+ *   • toque num alvo ⚔         → herói vai até a melhor casa e MOSTRA a previsão
+ *   • toque de novo / "ATACAR" → confirma o golpe
+ *   • toque numa casa azul     → só move (uma vez, dá pra "Voltar")
+ *   • ✨ Especial              → quando carregado: mira → banner + efeito na tela
+ *
+ * O herói só se move DE VERDADE quando a ação é confirmada; tudo antes é
+ * provisório e limitado ao alcance calculado no momento da seleção.
  */
 import { state } from "../core/state.js";
 import { router } from "./router.js";
@@ -29,16 +32,20 @@ import {
 import { recordBattleWin, endRunDefeat, syncSquadHP } from "../systems/run.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const md = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 
 let battle = null;
 let nodeId = null;
 let busy = false;
 let sel = null;
 /* sel = {
-     unit, origin:{x,y}, moved:bool,
-     moveRange:Map<"x,y",cost>,
-     targets:Map<enemyKey,{x,y}>,      casas para bater cada inimigo
-     healTargets:Map<allyKey,{x,y}>,
+     unit, origin:{x,y},
+     moveRange: Map<"x,y",cost>,        FIXO — calculado uma vez na seleção
+     dest: {x,y},                       posição provisória (origin, ou casa azul tocada)
+     movedManually: bool,
+     targetsAll: Map<enemyKey,{x,y}>,   melhor casa p/ bater cada inimigo (alcance todo)
+     healAll: Map<allyKey,{x,y}>,
+     armed: null | { enemyKey, tile:{x,y}, fc },
      special: null | { tiles:Set<"x,y"> }
    } */
 
@@ -57,12 +64,9 @@ export function renderBattle(mount, params) {
     <section class="battle">
       <div class="battle__stage" id="stage">
         <div class="battle__banner phase-player" id="banner"></div>
-        <div class="grid-wrap">
-          <div class="grid" id="grid"></div>
-        </div>
+        <div class="grid-wrap"><div class="grid" id="grid"></div></div>
         <div class="battle__actions" id="actions"></div>
       </div>
-
       <aside class="battle__side">
         <div class="panel combat-card" id="inspect"></div>
         <div class="panel combat-card">
@@ -77,27 +81,70 @@ export function renderBattle(mount, params) {
   paint();
 }
 
+/* ───────────────────────── posição visual do herói ───────────────────────── */
+function heroPos() {
+  if (!sel) return null;
+  return sel.armed ? sel.armed.tile : sel.dest;
+}
+function unitRenderedAt(x, y) {
+  const real = battle.units.find((z) => z.alive && z.x === x && z.y === y);
+  if (!sel || sel.special) return real;
+  const p = heroPos();
+  if (p && p.x === x && p.y === y && sel.unit.alive) return sel.unit;
+  if (real && real.key === sel.unit.key) return null; // desenhado em `dest`, não na origem
+  return real;
+}
+
+/* ───────────────────────── alvos conforme o estado ───────────────────────── */
+function currentTargets() {
+  if (!sel) return new Map();
+  if (sel.movedManually) {
+    const m = new Map();
+    for (const e of battle.units) {
+      if (!e.alive || e.team === sel.unit.team) continue;
+      const d = md(e, sel.dest);
+      if (d >= 1 && d <= sel.unit.stats.rng) m.set(e.key, { x: sel.dest.x, y: sel.dest.y });
+    }
+    return m;
+  }
+  return sel.targetsAll;
+}
+function currentHealTargets() {
+  if (!sel || sel.unit.skill?.type !== "healer") return new Map();
+  if (sel.movedManually) {
+    const m = new Map();
+    for (const a of battle.units) {
+      if (!a.alive || a.team !== sel.unit.team || a.key === sel.unit.key || a.curHP >= a.maxHP) continue;
+      if (md(a, sel.dest) <= sel.unit.stats.rng) m.set(a.key, { x: sel.dest.x, y: sel.dest.y });
+    }
+    return m;
+  }
+  return sel.healAll;
+}
+
 /* ───────────────────────────── render ───────────────────────────── */
 function paint() {
   const grid = document.getElementById("grid");
   if (!grid) return;
   const g = battle.grid;
-  grid.style.gridTemplateColumns = `repeat(${g.w}, var(--cell, 60px))`;
+  grid.style.setProperty("--cell", "60px");
+  grid.style.gridTemplateColumns = `repeat(${g.w}, 60px)`;
 
   const moveSet = sel && !sel.special ? sel.moveRange : null;
-  const targetTiles = new Set();
-  const healTiles = new Set();
-  if (sel && !sel.special) {
-    sel.targets.forEach((_t, k) => {
-      const e = battle.units.find((u) => u.key === k);
-      if (e?.alive) targetTiles.add(key(e.x, e.y));
-    });
-    sel.healTargets.forEach((_t, k) => {
-      const a = battle.units.find((u) => u.key === k);
-      if (a?.alive) healTiles.add(key(a.x, a.y));
-    });
-  }
+  const tgts = sel && !sel.special ? currentTargets() : new Map();
+  const heals = sel && !sel.special ? currentHealTargets() : new Map();
   const specialSet = sel?.special?.tiles ?? null;
+
+  const tgtTiles = new Set();
+  tgts.forEach((_v, k) => {
+    const e = battle.units.find((u) => u.key === k);
+    if (e?.alive) tgtTiles.add(key(e.x, e.y));
+  });
+  const healTiles = new Set();
+  heals.forEach((_v, k) => {
+    const a = battle.units.find((u) => u.key === k);
+    if (a?.alive) healTiles.add(key(a.x, a.y));
+  });
 
   let html = "";
   for (let y = 0; y < g.h; y++) {
@@ -105,29 +152,31 @@ function paint() {
       const k = key(x, y);
       const cls = ["tile"];
       if (moveSet?.has(k)) cls.push("mv-move");
-      if (targetTiles.has(k)) cls.push("mv-attack");
+      if (tgtTiles.has(k)) cls.push("mv-attack");
       if (healTiles.has(k)) cls.push("mv-heal");
       if (specialSet?.has(k)) cls.push("mv-special");
       html += `<div class="${cls.join(" ")}" data-terrain="${g.tiles[y][x]}" data-x="${x}" data-y="${y}">`;
-      const u = battle.units.find((z) => z.alive && z.x === x && z.y === y);
-      if (u) html += unitHTML(u, targetTiles.has(k) || healTiles.has(k));
+      const u = unitRenderedAt(x, y);
+      if (u) {
+        const armedHere = sel?.armed?.enemyKey === u.key;
+        html += unitHTML(u, tgtTiles.has(k) || healTiles.has(k), armedHere);
+      }
       html += "</div>";
     }
   }
   grid.innerHTML = html;
 
   grid.querySelectorAll(".tile").forEach((tile) => {
-    tile.addEventListener("click", () => onTile(Number(tile.dataset.x), Number(tile.dataset.y)));
+    tile.addEventListener("click", () => onTile(+tile.dataset.x, +tile.dataset.y));
   });
-  // previsão ao passar o mouse num alvo (desktop)
-  if (sel && !sel.special) {
+  if (sel && !sel.special && !sel.armed) {
     grid.querySelectorAll(".tile.mv-attack").forEach((tile) => {
       tile.addEventListener("mouseenter", () => {
-        const u = battle.units.find((z) => z.alive && z.x === +tile.dataset.x && z.y === +tile.dataset.y);
-        if (u && sel) previewForecast(u);
+        const e = battle.units.find((z) => z.alive && z.x === +tile.dataset.x && z.y === +tile.dataset.y);
+        if (e && sel) previewForecast(e, tgts.get(e.key));
       });
       tile.addEventListener("mouseleave", () => {
-        if (sel && !sel.special) renderInspectUnit(sel.unit);
+        if (sel && !sel.special && !sel.armed) renderInspectUnit(sel.unit);
       });
     });
   }
@@ -156,21 +205,21 @@ function renderFloaters() {
 }
 
 function renderBanner() {
-  const banner = document.getElementById("banner");
-  banner.className = `battle__banner phase-${battle.phase === "enemy" ? "enemy" : "player"}`;
+  const b = document.getElementById("banner");
+  if (!b) return;
+  b.className = `battle__banner phase-${battle.phase === "enemy" ? "enemy" : "player"}`;
   const left = battle.units.filter((u) => u.alive && u.team === "ally" && !u.acted).length;
-  banner.textContent =
-    battle.phase === "enemy"
-      ? "⚔️ Turno Inimigo…"
-      : `Turno ${battle.turn} · ${left} herói${left === 1 ? "" : "s"} para agir`;
+  b.textContent =
+    battle.phase === "enemy" ? "⚔️ Turno Inimigo…" : `Turno ${battle.turn} · ${left} herói${left === 1 ? "" : "s"} para agir`;
 }
 
-function unitHTML(u, highlighted) {
+function unitHTML(u, highlighted, armed) {
   const side = u.team === "ally" ? "ally" : u.side === "boss" ? "boss" : "enemy";
   const low = u.curHP / u.maxHP <= 0.35;
   const isSel = sel?.unit?.key === u.key ? "is-active" : "";
   const done = u.team === "ally" && u.acted ? "is-done" : "";
-  const tgt = highlighted && u.team !== (sel?.unit?.team ?? "") ? "is-target" : "";
+  const tgtCls = highlighted && u.team === "enemy" ? "is-target" : "";
+  const armedCls = armed ? "is-armed" : "";
   const artId = u.team === "ally" ? heroIdOf(u) : u.enemyId;
 
   let charge = "";
@@ -181,14 +230,13 @@ function unitHTML(u, highlighted) {
     const pips = Array.from({ length: u.chargeMax }, (_, i) => `<i class="${i < u.charge ? "on" : ""}"></i>`).join("");
     charge = `<span class="unit__charge ${ready ? "is-ready" : ""}">${ready ? "✨" : pips}</span>`;
   }
-  const buffed = u.buffs ? '<span class="unit__buff">▲</span>' : "";
-  const guarded = u.guard ? '<span class="unit__buff">🛡️</span>' : "";
+  const buff = u.buffs ? '<span class="unit__buff">▲</span>' : u.guard ? '<span class="unit__buff">🛡️</span>' : "";
 
   return `
-    <div class="unit side-${side} ${isSel} ${done} ${tgt} ${readyCls}" data-unit="${u.key}">
+    <div class="unit side-${side} ${isSel} ${done} ${tgtCls} ${armedCls} ${readyCls}" data-unit="${u.key}">
       ${portrait(u.team === "ally" ? "heroes" : "enemies", artId, u.emoji)}
       <span class="unit__aff aff-${u.aff}"></span>
-      ${charge}${buffed}${guarded}
+      ${charge}${buff}
       <span class="unit__hp ${low ? "is-low" : ""}"><i style="width:${Math.max(0, (u.curHP / u.maxHP) * 100)}%"></i></span>
     </div>`;
 }
@@ -198,35 +246,42 @@ function heroIdOf(u) {
 }
 
 /* ───────────────────────────── seleção ───────────────────────────── */
-function selectUnit(unit, keep = false) {
-  const origin = keep && sel ? sel.origin : { x: unit.x, y: unit.y };
-  const moved = keep && sel ? sel.moved : false;
-
-  const moveRange = computeMoveRange(battle, unit);
-  const targets = new Map();
-  const healTargets = new Map();
+function selectUnit(unit) {
+  const moveRange = computeMoveRange(battle, unit); // ← calculado UMA vez, da posição real
+  const targetsAll = new Map();
+  const healAll = new Map();
   const isHealer = unit.skill?.type === "healer";
   for (const e of battle.units) {
     if (!e.alive) continue;
     if (e.team !== unit.team) {
-      const tile = bestAttackTile(battle, unit, e);
-      if (tile) targets.set(e.key, tile);
+      const t = bestAttackTile(battle, unit, e);
+      if (t) targetsAll.set(e.key, t);
     } else if (isHealer && e.key !== unit.key && e.curHP < e.maxHP) {
-      const tile = bestHealTile(unit, e, moveRange);
-      if (tile) healTargets.set(e.key, tile);
+      const t = bestReachTile(unit, e, moveRange);
+      if (t) healAll.set(e.key, t);
     }
   }
-  sel = { unit, origin, moved, moveRange, targets, healTargets, special: null };
+  sel = {
+    unit,
+    origin: { x: unit.x, y: unit.y },
+    moveRange,
+    dest: { x: unit.x, y: unit.y },
+    movedManually: false,
+    targetsAll,
+    healAll,
+    armed: null,
+    special: null,
+  };
   renderInspectUnit(unit);
   paint();
 }
 
-function bestHealTile(healer, ally, moveRange) {
+function bestReachTile(actor, target, moveRange) {
   let best = null;
   let bestCost = Infinity;
   for (const [k, cost] of moveRange) {
     const [x, y] = k.split(",").map(Number);
-    if (Math.abs(x - ally.x) + Math.abs(y - ally.y) <= healer.stats.rng && cost < bestCost) {
+    if (Math.abs(x - target.x) + Math.abs(y - target.y) <= actor.stats.rng && cost < bestCost) {
       bestCost = cost;
       best = { x, y };
     }
@@ -242,15 +297,14 @@ function deselect() {
 /* ───────────────────────────── input ───────────────────────────── */
 function onTile(x, y) {
   if (busy || battle.phase !== "player" || battle.over) return;
-  const unit = battle.units.find((u) => u.alive && u.x === x && u.y === y);
+  const hit = unitRenderedAt(x, y);
 
   if (!sel) {
-    if (unit && unit.team === "ally" && !unit.acted) selectUnit(unit);
-    else if (unit) inspectEnemy(unit);
+    if (hit && hit.team === "ally" && !hit.acted) selectUnit(hit);
+    else if (hit && hit.team === "enemy") inspectEnemy(hit);
     return;
   }
 
-  // modo especial: mirar
   if (sel.special) {
     if (sel.special.tiles.has(key(x, y))) castSpecial({ x, y });
     else {
@@ -260,22 +314,47 @@ function onTile(x, y) {
     return;
   }
 
-  // clicou num inimigo alcançável → ataca já
-  if (unit && sel.targets.has(unit.key)) return attackEnemy(unit);
-  // clicou num aliado ferido (curandeiro) → cura já
-  if (unit && sel.healTargets.has(unit.key)) return healAlly(unit);
-  // clicou noutro herói livre → troca seleção
-  if (unit && unit.team === "ally" && unit.key !== sel.unit.key && !unit.acted) return selectUnit(unit);
-  // clicou no próprio herói → nada (use "Aguardar")
-  if (unit && unit.key === sel.unit.key) return;
-  // clicou numa casa azul vazia → move
-  if (!unit && sel.moveRange.has(key(x, y))) {
-    sel.moved = !(x === sel.origin.x && y === sel.origin.y);
-    sel.unit.x = x;
-    sel.unit.y = y;
-    selectUnit(sel.unit, true);
-    return;
+  const tgts = currentTargets();
+  const heals = currentHealTargets();
+
+  // já mirado: segundo toque no MESMO inimigo confirma
+  if (sel.armed) {
+    if (hit && hit.key === sel.armed.enemyKey) return confirmAttack();
+    if (hit && tgts.has(hit.key)) return armEnemy(hit, tgts.get(hit.key)); // mira outro
+    if (hit && hit.team === "ally" && hit.key !== sel.unit.key && !hit.acted) return selectUnit(hit);
+    if (!hit && sel.moveRange.has(key(x, y))) return moveTo(x, y); // solta a mira e anda
+    return disarm();
   }
+
+  if (hit && tgts.has(hit.key)) return armEnemy(hit, tgts.get(hit.key));
+  if (hit && heals.has(hit.key)) return healAlly(hit, heals.get(hit.key));
+  if (hit && hit.team === "ally" && hit.key !== sel.unit.key && !hit.acted) return selectUnit(hit);
+  if (hit && hit.key === sel.unit.key) return; // usa "Aguardar"
+  if (!hit && sel.moveRange.has(key(x, y))) return moveTo(x, y);
+}
+
+function moveTo(x, y) {
+  if (busy || !sel) return;
+  sel.dest = { x, y };
+  sel.movedManually = !(x === sel.origin.x && y === sel.origin.y);
+  sel.armed = null;
+  renderInspectUnit(sel.unit);
+  paint();
+}
+
+function armEnemy(enemy, tile) {
+  if (busy || !sel) return;
+  const fc = forecast(battle, sel.unit.key, enemy.key, tile);
+  sel.armed = { enemyKey: enemy.key, tile: { x: tile.x, y: tile.y }, fc };
+  paint();
+  renderArmedPanel(enemy, fc);
+}
+
+function disarm() {
+  if (!sel) return;
+  sel.armed = null;
+  renderInspectUnit(sel.unit);
+  paint();
 }
 
 async function finishTurnIfDone() {
@@ -283,28 +362,23 @@ async function finishTurnIfDone() {
   if (battle.units.filter((u) => u.alive && u.team === "ally").every((u) => u.acted)) await doEnemyTurn();
 }
 
-async function attackEnemy(enemy) {
-  const attacker = sel.unit;
-  const tile = sel.targets.get(enemy.key);
-  const fc = forecast(battle, attacker.key, enemy.key, tile);
-  if (fc?.dies && !fc.kills) {
-    busy = true;
-    const ok = await confirmRisky(attacker, enemy, fc);
-    busy = false;
-    if (!ok) return;
-  }
+async function confirmAttack() {
+  if (busy || !sel?.armed) return;
+  const armed = sel.armed;
+  const enemy = battle.units.find((u) => u.key === armed.enemyKey);
+  if (!enemy?.alive) return disarm();
   busy = true;
-  performAction(battle, attacker, { moveTo: tile, mode: "attack", targetKey: enemy.key });
+  performAction(battle, sel.unit, { moveTo: armed.tile, mode: "attack", targetKey: armed.enemyKey });
   playSfx("hit");
   sel = null;
   paint();
-  await sleep(320);
+  await sleep(340);
   busy = false;
   await finishTurnIfDone();
 }
 
-async function healAlly(ally) {
-  const tile = sel.healTargets.get(ally.key);
+async function healAlly(ally, tile) {
+  if (busy || !sel) return;
   busy = true;
   performAction(battle, sel.unit, { moveTo: tile, mode: "heal", targetKey: ally.key });
   playSfx("heal");
@@ -316,8 +390,9 @@ async function healAlly(ally) {
 }
 
 async function commitWait() {
+  if (busy || !sel) return;
   busy = true;
-  performAction(battle, sel.unit, { moveTo: { x: sel.unit.x, y: sel.unit.y }, mode: "wait" });
+  performAction(battle, sel.unit, { moveTo: sel.dest, mode: "wait" });
   sel = null;
   paint();
   await sleep(120);
@@ -327,12 +402,17 @@ async function commitWait() {
 
 /* ───────────────────────────── especial ───────────────────────────── */
 function enterSpecial() {
-  const unit = sel.unit;
-  if (unit.charge < unit.chargeMax) return;
-  if (!activeNeedsAim(unit)) return castSpecial(null);
-  const tiles = new Set(activeTargetTiles(battle, unit).map((t) => key(t.x, t.y)));
+  if (busy || !sel) return;
+  const u = sel.unit;
+  if (u.charge < u.chargeMax) return;
+  // o especial parte da posição atual do herói e mira/reposiciona sozinho
+  sel.armed = null;
+  sel.dest = { x: sel.origin.x, y: sel.origin.y };
+  sel.movedManually = false;
+  if (!activeNeedsAim(u)) return castSpecial(null);
+  const tiles = new Set(activeTargetTiles(battle, u).map((t) => key(t.x, t.y)));
   if (tiles.size === 0) {
-    toast("Sem alvo no alcance — chegue mais perto e tente de novo.", "bad");
+    toast("Sem alvo no alcance do especial — chegue mais perto.", "bad");
     return;
   }
   sel.special = { tiles };
@@ -340,6 +420,7 @@ function enterSpecial() {
 }
 
 async function castSpecial(aim) {
+  if (!sel) return;
   const unit = sel.unit;
   busy = true;
   const data = useActive(battle, unit, aim);
@@ -350,16 +431,15 @@ async function castSpecial(aim) {
     return;
   }
   playSfx("special");
-  // guarda os floaters de dano para mostrar depois do banner + efeito
   const pending = battle.floaters;
   battle.floaters = [];
   sel = null;
-  paint(); // limpa o realce do modo especial
+  paint();
   await showSkillBanner(data);
   await playFx(data);
   battle.floaters = pending;
   paint();
-  await sleep(360);
+  await sleep(380);
   busy = false;
   await finishTurnIfDone();
 }
@@ -368,18 +448,15 @@ async function castSpecial(aim) {
 function tileCenter(x, y) {
   const cell = document.querySelector(`#grid [data-x="${x}"][data-y="${y}"]`);
   if (!cell) return null;
-  return {
-    cx: cell.offsetLeft + cell.offsetWidth / 2,
-    cy: cell.offsetTop + cell.offsetHeight / 2,
-    w: cell.offsetWidth,
-    h: cell.offsetHeight,
-  };
+  return { cx: cell.offsetLeft + cell.offsetWidth / 2, cy: cell.offsetTop + cell.offsetHeight / 2, w: cell.offsetWidth };
 }
 
 function showSkillBanner(data) {
   const stage = document.getElementById("stage");
   if (!stage) return sleep(0);
-  const el = h(`<div class="skill-banner"><span class="skill-banner__name">${data.name}</span><span class="skill-banner__cry">${data.banner}</span></div>`);
+  const el = h(
+    `<div class="skill-banner"><span class="skill-banner__name">${data.name}</span><span class="skill-banner__cry">${data.banner}</span></div>`
+  );
   stage.appendChild(el);
   return sleep(1150).then(() => {
     el.classList.add("is-out");
@@ -394,68 +471,60 @@ async function playFx(data) {
   layer.className = "fx-layer";
   grid.appendChild(layer);
 
-  const spawn = (cls, x, y, extra = {}) => {
+  const spawn = (cls, x, y) => {
     const c = tileCenter(x, y);
     if (!c) return;
     const d = document.createElement("div");
     d.className = cls;
     d.style.left = `${c.cx}px`;
     d.style.top = `${c.cy}px`;
-    Object.assign(d.style, extra);
     layer.appendChild(d);
+  };
+  const beamFrom = (fromPt, toPt, cls) => {
+    const a = tileCenter(fromPt.x, fromPt.y);
+    const b = tileCenter(toPt.x, toPt.y) || a;
+    if (!a) return;
+    const dx = b.cx - a.cx;
+    const dy = b.cy - a.cy;
+    const el = document.createElement("div");
+    el.className = cls;
+    el.style.left = `${a.cx}px`;
+    el.style.top = `${a.cy}px`;
+    el.style.width = `${Math.hypot(dx, dy) + a.w}px`;
+    el.style.transform = `rotate(${(Math.atan2(dy, dx) * 180) / Math.PI}deg)`;
+    layer.appendChild(el);
   };
 
   const fx = data.fx;
+  const affected = data.affected || [];
   if (fx === "beam") {
-    const a = tileCenter(data.from.x, data.from.y);
-    const cells = data.affected.length ? data.affected : [data.aim];
-    const b = tileCenter(cells[cells.length - 1].x, cells[cells.length - 1].y) || a;
-    if (a && b) {
-      const dx = b.cx - a.cx;
-      const dy = b.cy - a.cy;
-      const len = Math.hypot(dx, dy) + a.w;
-      const ang = (Math.atan2(dy, dx) * 180) / Math.PI;
-      const beam = document.createElement("div");
-      beam.className = "fx-beam";
-      beam.style.left = `${a.cx}px`;
-      beam.style.top = `${a.cy}px`;
-      beam.style.width = `${len}px`;
-      beam.style.transform = `rotate(${ang}deg)`;
-      layer.appendChild(beam);
-    }
-    cells.forEach((c) => spawn("fx-spark", c.x, c.y));
+    beamFrom(data.from, affected[affected.length - 1] || data.aim, "fx-beam");
+    affected.forEach((c) => spawn("fx-spark", c.x, c.y));
+  } else if (fx === "impact") {
+    document.getElementById("stage")?.classList.add("shake");
+    setTimeout(() => document.getElementById("stage")?.classList.remove("shake"), 400);
+    spawn("fx-impact", data.aim.x, data.aim.y);
+    spawn("fx-nova", data.aim.x, data.aim.y);
   } else if (fx === "nova") {
     spawn("fx-nova", data.aim.x, data.aim.y);
-    (data.affected || []).forEach((c) => spawn("fx-spark", c.x, c.y));
+    affected.forEach((c) => spawn("fx-spark", c.x, c.y));
   } else if (fx === "blast") {
     spawn("fx-blast", data.aim.x, data.aim.y);
-    (data.affected || []).forEach((c) => spawn("fx-ring", c.x, c.y));
+    affected.forEach((c) => spawn("fx-ring", c.x, c.y));
   } else if (fx === "sparkle") {
-    (data.affected || []).forEach((c, i) => setTimeout(() => spawn("fx-heal", c.x, c.y), i * 60));
+    affected.forEach((c, i) => setTimeout(() => spawn("fx-heal", c.x, c.y), i * 55));
   } else if (fx === "shield") {
-    (data.affected || []).forEach((c) => spawn("fx-dome", c.x, c.y));
+    affected.forEach((c) => spawn("fx-dome", c.x, c.y));
   } else if (fx === "rally") {
-    (data.affected || []).forEach((c, i) => setTimeout(() => spawn("fx-rally", c.x, c.y), i * 50));
+    affected.forEach((c, i) => setTimeout(() => spawn("fx-rally", c.x, c.y), i * 45));
   } else if (fx === "dash") {
-    const a = tileCenter(data.from.x, data.from.y);
-    const b = tileCenter(data.aim.x, data.aim.y) || a;
-    if (a && b) {
-      const streak = document.createElement("div");
-      streak.className = "fx-beam fx-beam--dash";
-      const dx = b.cx - a.cx;
-      const dy = b.cy - a.cy;
-      streak.style.left = `${a.cx}px`;
-      streak.style.top = `${a.cy}px`;
-      streak.style.width = `${Math.hypot(dx, dy) || a.w}px`;
-      streak.style.transform = `rotate(${(Math.atan2(dy, dx) * 180) / Math.PI}deg)`;
-      layer.appendChild(streak);
-    }
-    (data.affected || []).forEach((c) => spawn("fx-spark", c.x, c.y));
+    beamFrom(data.from, data.aim, "fx-beam fx-beam--dash");
+    affected.forEach((c) => spawn("fx-spark", c.x, c.y));
   } else if (fx === "mirror") {
     spawn("fx-dome", data.from.x, data.from.y);
   }
 
-  await sleep(fx === "sparkle" || fx === "rally" ? 720 : 640);
+  await sleep(fx === "sparkle" || fx === "rally" ? 820 : 660);
   layer.remove();
 }
 
@@ -478,7 +547,7 @@ function renderActions() {
   }
 
   if (sel.special) {
-    bar.innerHTML = `<span class="dim" style="font-size:.85rem">Toque numa casa iluminada para lançar <b>${sel.unit.active.name}</b>.</span>
+    bar.innerHTML = `<span class="dim" style="font-size:.85rem">Toque numa casa roxa para lançar <b>${sel.unit.active.name}</b>.</span>
       <button class="btn btn--ghost btn--sm" id="sp-cancel">Cancelar</button>`;
     bar.querySelector("#sp-cancel").addEventListener("click", () => {
       sel.special = null;
@@ -487,28 +556,39 @@ function renderActions() {
     return;
   }
 
+  if (sel.armed) {
+    const enemy = battle.units.find((u) => u.key === sel.armed.enemyKey);
+    bar.innerHTML = `
+      <button class="btn btn--primary" id="do-attack">⚔ ATACAR ${enemy ? enemy.name : ""}</button>
+      <button class="btn btn--ghost btn--sm" id="disarm">Voltar</button>`;
+    bar.querySelector("#do-attack").addEventListener("click", confirmAttack);
+    bar.querySelector("#disarm").addEventListener("click", disarm);
+    return;
+  }
+
   const u = sel.unit;
   const ready = u.chargeMax && u.charge >= u.chargeMax;
-  const specBtn = u.chargeMax
+  const spec = u.chargeMax
     ? `<button class="btn ${ready ? "btn--gold spec-ready" : "btn--ghost"} btn--sm" id="special" ${ready ? "" : "disabled"}>
-         ✨ ${u.active.name}${ready ? "" : ` (${u.charge}/${u.chargeMax})`}
-       </button>`
+         ✨ ${u.active.name}${ready ? "" : ` ${u.charge}/${u.chargeMax}`}</button>`
     : "";
-
   bar.innerHTML = `
-    <span class="dim" style="font-size:.82rem">${sel.targets.size || sel.healTargets.size ? "Toque num alvo destacado, " : ""}ou numa casa azul.</span>
-    ${specBtn}
+    <span class="dim" style="font-size:.8rem">Toque num alvo ⚔ ou numa casa azul.</span>
+    ${spec}
     <button class="btn btn--sm" id="wait">Aguardar</button>
-    ${sel.moved ? '<button class="btn btn--ghost btn--sm" id="back">Voltar</button>' : '<button class="btn btn--ghost btn--sm" id="cancel">Cancelar</button>'}`;
-
+    ${
+      sel.movedManually
+        ? '<button class="btn btn--ghost btn--sm" id="back">Voltar</button>'
+        : '<button class="btn btn--ghost btn--sm" id="cancel">Cancelar</button>'
+    }`;
   bar.querySelector("#special")?.addEventListener("click", enterSpecial);
   bar.querySelector("#wait").addEventListener("click", commitWait);
   bar.querySelector("#cancel")?.addEventListener("click", deselect);
   bar.querySelector("#back")?.addEventListener("click", () => {
-    sel.moved = false;
-    sel.unit.x = sel.origin.x;
-    sel.unit.y = sel.origin.y;
-    selectUnit(sel.unit, true);
+    sel.dest = { x: sel.origin.x, y: sel.origin.y };
+    sel.movedManually = false;
+    renderInspectUnit(sel.unit);
+    paint();
   });
 }
 
@@ -524,8 +604,8 @@ function renderInspectDefault() {
       <div class="row row--between"><span>Seus heróis</span><b>${allies.filter((u) => u.alive).length}/${allies.length}</b></div>
       <div class="row row--between"><span>Inimigos</span><b>${enemies.length}</b></div>
       <p class="muted" style="margin-top:8px; font-size:.8rem">
-        🔴 vence 🟢 · 🟢 vence 🔵 · 🔵 vence 🔴 (±30%). +5 de SPD = ataca 2×.
-        O especial ✨ carrega a cada golpe dado ou recebido.
+        🔴 vence 🟢 · 🟢 vence 🔵 · 🔵 vence 🔴 (±30%). +5 de SPD = ataca 2×.<br>
+        O especial ✨ ganha 1 carga por turno para o último herói que você usar.
       </p>
     </div>`;
 }
@@ -540,7 +620,7 @@ function renderInspectUnit(u) {
     <div class="unit-inspect">
       <div class="name">${aff.icon} ${aff.label}</div>
       ${hpBar(u.curHP, u.maxHP)}
-      <div class="muted" style="margin-top:4px; font-size:.8rem">${Math.round(u.curHP)}/${u.maxHP} HP${u.buffs ? " · +ATK" : ""}${u.guard ? " · 🛡️ guarda" : ""}</div>
+      <div class="muted" style="margin-top:4px; font-size:.8rem">${Math.round(u.curHP)}/${u.maxHP} HP${u.buffs ? " · +ATK" : ""}${u.guard ? " · 🛡️" : ""}</div>
       <div class="grid4">
         <span><b>${u.stats.atk + (u.buffs?.atk || 0)}</b>ATK</span>
         <span><b>${u.stats.def}</b>DEF</span>
@@ -558,26 +638,41 @@ function renderInspectUnit(u) {
     </div>`;
 }
 
-function previewForecast(target) {
+function fcPanel(atkName, defName, fc) {
+  const aff =
+    fc.aff === "adv" ? '<span class="adv">vantagem +30%</span>' : fc.aff === "dis" ? '<span class="dis">desvantagem −30%</span>' : '<span class="muted">neutro</span>';
+  return `
+    <div class="forecast">
+      <div><span>${defName}</span><b>${fc.defFrom} → ${fc.defTo}${fc.kills ? " ☠️" : ""}</b></div>
+      <div><span>${atkName}</span><b class="${fc.dies ? "dis" : ""}">${fc.atkFrom} → ${fc.atkTo}${fc.dies ? " ☠️" : ""}</b></div>
+      <div style="margin-top:5px">${aff}</div>
+    </div>`;
+}
+
+function previewForecast(enemy, tile) {
   const box = document.getElementById("inspect");
   if (!box || !sel) return;
-  const tile = sel.targets.get(target.key);
-  const fc = forecast(battle, sel.unit.key, target.key, tile);
+  const fc = forecast(battle, sel.unit.key, enemy.key, tile || sel.dest);
   if (!fc) return;
-  const affTxt =
-    fc.aff === "adv" ? '<span class="adv">vantagem +30%</span>' : fc.aff === "dis" ? '<span class="dis">desvantagem −30%</span>' : '<span class="muted">neutro</span>';
-  box.innerHTML = `
-    <h3>Previsão</h3>
+  box.innerHTML = `<h3>Previsão</h3>
     <div class="matchup">
       <div><span class="emoji">${sel.unit.emoji}</span><small>${sel.unit.name}</small></div>
       <div class="vs">⚔</div>
-      <div><span class="emoji">${target.emoji}</span><small>${target.name}</small></div>
+      <div><span class="emoji">${enemy.emoji}</span><small>${enemy.name}</small></div>
+    </div>${fcPanel(sel.unit.name, enemy.name, fc)}`;
+}
+
+function renderArmedPanel(enemy, fc) {
+  const box = document.getElementById("inspect");
+  if (!box) return;
+  box.innerHTML = `<h3>Confirmar ataque</h3>
+    <div class="matchup">
+      <div><span class="emoji">${sel.unit.emoji}</span><small>${sel.unit.name}</small></div>
+      <div class="vs">⚔</div>
+      <div><span class="emoji">${enemy.emoji}</span><small>${enemy.name}</small></div>
     </div>
-    <div class="forecast">
-      <div><span>${target.name}</span><b>${fc.defFrom} → ${fc.defTo}${fc.kills ? " ☠️" : ""}</b></div>
-      <div><span>${sel.unit.name}</span><b>${fc.atkFrom} → ${fc.atkTo}${fc.dies ? " ☠️" : ""}</b></div>
-      <div style="margin-top:5px">${affTxt}</div>
-    </div>`;
+    ${fcPanel(sel.unit.name, enemy.name, fc)}
+    ${fc.dies && !fc.kills ? '<p class="dis" style="font-size:.8rem;margin-top:6px">⚠️ Este golpe pode derrubar seu herói.</p>' : ""}`;
 }
 
 function inspectEnemy(u) {
@@ -590,10 +685,8 @@ function inspectEnemy(u) {
       ${hpBar(u.curHP, u.maxHP)}
       <div class="muted" style="margin-top:4px; font-size:.8rem">${Math.round(u.curHP)}/${u.maxHP} HP</div>
       <div class="grid4">
-        <span><b>${u.stats.atk}</b>ATK</span>
-        <span><b>${u.stats.def}</b>DEF</span>
-        <span><b>${u.stats.spd}</b>SPD</span>
-        <span><b>${u.stats.mov}</b>MOV</span>
+        <span><b>${u.stats.atk}</b>ATK</span><span><b>${u.stats.def}</b>DEF</span>
+        <span><b>${u.stats.spd}</b>SPD</span><span><b>${u.stats.mov}</b>MOV</span>
       </div>
       ${enemyTraitText(u) ? `<p class="skill-p">${enemyTraitText(u)}</p>` : ""}
     </div>`;
@@ -601,38 +694,33 @@ function inspectEnemy(u) {
 
 function enemyTraitText(u) {
   const t = u.traits || {};
-  const bits = [];
-  if (t.double) bits.push("ataca duas vezes");
-  if (t.bulwark) bits.push(`−${Math.round(t.bulwark * 100)}% dano recebido`);
-  if (t.openerBonus) bits.push("primeiro golpe reforçado");
-  if (t.omniCounter) bits.push("revida a qualquer alcance");
-  if (t.rage) bits.push(`+${t.rage} ATK por turno`);
-  if (t.ignoreWheel) bits.push("imune ao triângulo");
-  if (t.alwaysCounter) bits.push("sempre revida");
-  return bits.join(" · ");
+  const b = [];
+  if (t.double) b.push("ataca duas vezes");
+  if (t.bulwark) b.push(`−${Math.round(t.bulwark * 100)}% dano recebido`);
+  if (t.openerBonus) b.push("primeiro golpe reforçado");
+  if (t.omniCounter) b.push("revida a qualquer alcance");
+  if (t.rage) b.push(`+${t.rage} ATK por turno`);
+  if (t.ignoreWheel) b.push("imune ao triângulo");
+  if (t.alwaysCounter) b.push("sempre revida");
+  return b.join(" · ");
 }
 
 function renderLog() {
   const log = document.getElementById("log");
   if (!log) return;
-  log.innerHTML = battle.log
-    .slice(-40)
-    .reverse()
-    .map((l) => `<p>${l}</p>`)
-    .join("");
+  log.innerHTML = battle.log.slice(-40).reverse().map((l) => `<p>${l}</p>`).join("");
 }
 
-/* ───────────────────────────── turno inimigo ───────────────────────────── */
+/* ───────────────────────────── turno inimigo / fim ───────────────────────────── */
 async function doEnemyTurn() {
-  if (busy && battle.phase === "enemy") return;
+  if (busy || battle.phase === "enemy" || battle.over) return;
   busy = true;
   sel = null;
   await runEnemyTurn(battle, { render: paint, sleep, afterCombat: () => playSfx("hit") });
   busy = false;
-  checkEnd();
+  if (!checkEnd()) paint();
 }
 
-/* ───────────────────────────── fim ───────────────────────────── */
 function checkEnd() {
   if (!battle.over) return false;
   busy = true;
@@ -668,31 +756,8 @@ function showEnd(win) {
   });
 }
 
-function confirmRisky(unit, enemy, fc) {
-  return new Promise((resolve) => {
-    const { box, close } = modal(`
-      <h2>Ataque arriscado</h2>
-      <p class="muted" style="margin:8px 0 4px">A previsão diz que <b>${unit.name}</b> pode cair neste ataque.</p>
-      <div class="forecast" style="margin:12px 0">
-        <div><span>${enemy.name}</span><b>${fc.defFrom} → ${fc.defTo}${fc.kills ? " ☠️" : ""}</b></div>
-        <div><span>${unit.name}</span><b class="dis">${fc.atkFrom} → ${fc.atkTo} ☠️</b></div>
-      </div>
-      <div class="row">
-        <button class="btn btn--primary" data-yes>Atacar mesmo assim</button>
-        <button class="btn btn--ghost" data-no>Cancelar</button>
-      </div>`);
-    box.querySelector("[data-yes]").addEventListener("click", () => {
-      close();
-      resolve(true);
-    });
-    box.querySelector("[data-no]").addEventListener("click", () => {
-      close();
-      resolve(false);
-    });
-  });
-}
-
 function confirmRetreat() {
+  if (busy) return;
   const { box, close } = modal(`
     <h2>Fugir da batalha?</h2>
     <p class="muted" style="margin:10px 0 18px">Conta como derrota — a run termina.</p>

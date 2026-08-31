@@ -220,6 +220,7 @@ export function createBattle(run, node) {
     floaters: [],
     firstHitPending: triggers.some((t) => t.trigger === "firstHitDouble"),
     cheatDeathReady: triggers.some((t) => t.trigger === "cheatDeath"),
+    lastAllyActor: null, // último herói que o jogador usou (ganha +1 carga ao fim do turno)
     over: null, // 'win' | 'loss'
   };
 }
@@ -400,7 +401,6 @@ function canCounter(atk, def) {
 export function resolveCombat(battle, atk, def) {
   battle.floaters = [];
   const from = battle.log.length;
-  const defHP0 = def.curHP;
 
   strike(battle, atk, def, { initiating: true, firstOfCombat: true });
 
@@ -416,11 +416,8 @@ export function resolveCombat(battle, atk, def) {
     strike(battle, def, atk, { initiating: false, firstOfCombat: false });
   }
 
-  // carrega o Especial de quem participou
+  // carrega o Especial de quem atacou
   if (atk.team === "ally" && atk.alive && atk.chargeMax) atk.charge = Math.min(atk.chargeMax, atk.charge + 1);
-  if (def.team === "ally" && def.alive && def.chargeMax && def.curHP < defHP0) {
-    def.charge = Math.min(def.chargeMax, def.charge + 1);
-  }
 
   updateOutcome(battle);
   return battle.log.slice(from);
@@ -507,6 +504,7 @@ export function performAction(battle, unit, action) {
 
   tickTerrain(battle, unit);
   unit.acted = true;
+  battle.lastAllyActor = unit.key;
   updateOutcome(battle);
 
   if (battle.phase === "player" && battle.units.filter((u) => u.alive && u.team === "ally").every((u) => u.acted)) {
@@ -525,6 +523,17 @@ export function endPlayerTurn(battle) {
 export async function runEnemyTurn(battle, hooks) {
   battle.phase = "enemy";
   battle.autoEndHint = false;
+
+  // carga do especial: o último herói que você usou (moveu/atacou) ganha +1
+  if (battle.lastAllyActor) {
+    const la = battle.units.find((u) => u.key === battle.lastAllyActor && u.alive);
+    if (la && la.chargeMax && la.charge < la.chargeMax) {
+      la.charge = Math.min(la.chargeMax, la.charge + 1);
+      battle.log.push(`✨ ${la.name} concentra energia (carga ${la.charge}/${la.chargeMax}).`);
+    }
+  }
+  battle.lastAllyActor = null;
+
   hooks.render();
   await hooks.sleep(320);
 
@@ -567,6 +576,7 @@ export async function runEnemyTurn(battle, hooks) {
     if (u.team === "ally" && u.alive) {
       u.acted = false;
       u.guard = 0; // o Domo protegeu durante este turno inimigo
+      u.reflectPending = false; // Reflexo Total dura um turno
       if (u.buffs) {
         u.buffs.turns -= 1;
         if (u.buffs.turns <= 0) u.buffs = null;
@@ -587,14 +597,14 @@ export function battleSnapshotHP(battle) {
 // ═══════════════════════════════════════════════════════════════════════════
 // ATAQUE SIMPLIFICADO — melhor casa para bater num alvo (usado pelo "1 toque")
 // ═══════════════════════════════════════════════════════════════════════════
-export function bestAttackTile(battle, unit, target) {
+export function bestAttackTile(battle, unit, target, rng = unit.stats.rng) {
   const range = computeMoveRange(battle, unit);
   let best = null;
   let bestScore = -Infinity;
   for (const [k, cost] of range) {
     const [x, y] = k.split(",").map(Number);
     const d = Math.abs(x - target.x) + Math.abs(y - target.y);
-    if (d < 1 || d > unit.stats.rng) continue;
+    if (d < 1 || d > rng) continue;
 
     const terr = battle.grid.tiles[y][x];
     let s = 0;
@@ -669,9 +679,10 @@ export function activeTargetTiles(battle, unit) {
   const range = a.range || 4;
 
   if (a.kind === "nuke" || a.kind === "blast") {
+    // pode andar até uma casa a `range` do alvo
     for (const e of battle.units) {
       if (!e.alive || e.team === unit.team) continue;
-      if (manhattan(e, unit) <= range) out.push({ x: e.x, y: e.y });
+      if (manhattan(e, unit) <= range || bestAttackTile(battle, unit, e, range)) out.push({ x: e.x, y: e.y });
     }
   } else if (a.kind === "line") {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -714,11 +725,26 @@ export function useActive(battle, unit, aim) {
     case "nuke": {
       const tgt = battle.units.find((u) => u.alive && u.team !== unit.team && u.x === aim.x && u.y === aim.y);
       if (!tgt) return null;
+      if (manhattan(unit, tgt) > (a.range || 1)) {
+        const t = bestAttackTile(battle, unit, tgt, a.range || 1);
+        if (t) {
+          unit.x = t.x;
+          unit.y = t.y;
+        }
+      }
       specialStrike(battle, unit, tgt, a.power, { pierce: a.pierce || 0 });
       affected.push({ x: aim.x, y: aim.y });
       break;
     }
     case "blast": {
+      const centerFoe = battle.units.find((u) => u.alive && u.team !== unit.team && u.x === aim.x && u.y === aim.y);
+      if (centerFoe && manhattan(unit, centerFoe) > (a.range || 4)) {
+        const t = bestAttackTile(battle, unit, centerFoe, a.range || 4);
+        if (t) {
+          unit.x = t.x;
+          unit.y = t.y;
+        }
+      }
       const cells = a.shape === "square" ? squareCells(aim, 1) : crossCells(aim);
       for (const c of cells) {
         if (!inBounds(battle, c.x, c.y)) continue;
@@ -820,6 +846,7 @@ export function useActive(battle, unit, aim) {
 
   unit.charge = 0;
   unit.acted = true;
+  battle.lastAllyActor = unit.key;
   battle.log.push(`✨✨ ${unit.name} usou ${a.name}!`);
   updateOutcome(battle);
   return { name: a.name, banner: a.banner, fx: a.fx, kind: a.kind, from, aim: aim || from, affected };

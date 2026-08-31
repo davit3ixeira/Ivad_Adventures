@@ -39,8 +39,7 @@
 .grid-wrap {
   overflow-x: auto;
   overflow-y: visible;
-  padding: 22px 4px 8px; /* espaço para markers/charge acima das unidades */
-  margin: -14px 0 0;
+  padding: 20px 4px 6px; /* espaço para markers/charge acima das unidades */
 }
 .grid {
   position: relative;
@@ -94,6 +93,13 @@
   animation: tgt-bob 0.9s ease-in-out infinite;
 }
 @keyframes tgt-bob { 50% { transform: translate(-50%, -3px); } }
+
+/* inimigo mirado, aguardando confirmação */
+.unit.is-armed {
+  box-shadow: 0 0 0 3px var(--rubro), 0 0 22px 2px var(--rubro);
+  animation: armed-pulse 0.7s ease-in-out infinite;
+}
+@keyframes armed-pulse { 50% { box-shadow: 0 0 0 4px var(--gold), 0 0 26px 4px var(--rubro); } }
 
 /* unidade sobre o tile */
 .unit {
@@ -299,6 +305,26 @@
   animation: fx-nova 0.6s ease-out forwards;
 }
 @keyframes fx-nova { from { transform: scale(0.2); opacity: 1; } to { transform: scale(9); opacity: 0; } }
+
+/* impacto de soco */
+.fx-impact {
+  width: 40px; height: 40px; margin: -20px 0 0 -20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 20%, rgba(255,255,255,0.35) 45%, transparent 60%);
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.8), 0 0 40px 8px rgba(255,220,150,0.7);
+  animation: fx-impact 0.35s cubic-bezier(0.2,0.8,0.2,1) forwards;
+}
+@keyframes fx-impact { from { transform: scale(0.1); opacity: 1; } 60% { opacity: 1; } to { transform: scale(3.4); opacity: 0; } }
+
+.battle__stage.shake { animation: stage-shake 0.4s ease; }
+@keyframes stage-shake {
+  0%,100% { transform: translate(0,0); }
+  15% { transform: translate(-6px, 3px); }
+  30% { transform: translate(5px, -4px); }
+  45% { transform: translate(-4px, -2px); }
+  60% { transform: translate(4px, 3px); }
+  80% { transform: translate(-2px, 1px); }
+}
 
 .fx-blast {
   width: 30px; height: 30px; margin: -15px 0 0 -15px;

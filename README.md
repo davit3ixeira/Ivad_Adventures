@@ -65,11 +65,13 @@ Só a **Live Server** é obrigatória. As outras são conforto de desenvolviment
    - ⚔️ Batalha · ☠️ Elite · 🔱 Chefe · ❓ Evento · 🛒 Loja · ⛺ Descanso
 4. **Batalha tática** — grade 8×6, terrenos (magma, floresta, rocha, ruínas),
    **triângulo de afinidades** 🔴→🟢→🔵→🔴 (±30%), ataque duplo com +5 de SPD.
-   - **Atacar é em 1 toque:** toque no herói → toque no inimigo com ⚔ (ele anda
-     até a melhor casa e bate). Toque numa casa azul = só mover (dá pra *Voltar*).
-   - **Especial ✨** — cada herói tem um golpe único (Soco Nuclear, KetchouEtchou!,
-     Mãos de Luz, Carapaça Suprema…). Carrega a cada golpe dado/recebido; quando
-     pronto, botão dourado na barra → mira → **banner + efeito na tela**.
+   - Toque no herói → **azul** = mover (dentro do alcance de MOV) · **⚔** = alvos.
+   - Toque num alvo ⚔ → o herói vai até a melhor casa e mostra a **previsão**;
+     toque de novo (ou "ATACAR") para confirmar. Sem clicar no herói de novo.
+   - Toque numa casa azul = só mover (uma vez; dá pra *Voltar*).
+   - **Especial ✨** — golpe único por herói (Soco de Ivad, KetchouEtchou!,
+     Mãos de Luz, Carapaça Suprema…). Ganha **+1 carga por turno** para o último
+     herói que você usou; pronto → botão dourado → mira → **banner + efeito**.
 5. A cada vitória, escolha **1 de 3 Cartas de Mácula** (buffs da run).
    HP **não** regenera entre batalhas — só em ⛺.
 6. Derrote o chefe do capítulo para liberar o próximo.

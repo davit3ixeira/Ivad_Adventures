@@ -182,7 +182,7 @@ export function createBattle(run, node) {
     const spot =
       slot.role === "boss"
         ? (() => {
-            const s = { x: GRID_W - 1, y: Math.floor(grid.h / 2) };
+            const s = { x: GRID_W - 2, y: Math.floor(grid.h / 2) }; // um pouco pra dentro (sprite maior)
             occupied.add(key(s.x, s.y));
             return s;
           })()

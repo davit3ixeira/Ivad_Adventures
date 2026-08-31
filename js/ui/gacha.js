@@ -84,24 +84,29 @@ function showReveal(stage, results, refund, done) {
   const cards = results
     .map(
       (r) => `
-      <div class="reveal-card rar-${r.star} ${r.isNew ? "is-new" : ""}">
-        <div>${portrait("heroes", r.heroId, r.emoji)}</div>
-        <div style="font-family:var(--font-display); font-weight:700; margin-top:6px">${r.name}</div>
-        <div class="stars" style="--rar:var(--r${r.star})">${stars(r.star)}</div>
+      <div class="reveal-card rar-${r.star} ${r.isNew ? "is-new" : ""}" style="--rar:var(--r${r.star})">
+        ${portrait("heroes", r.heroId, r.emoji)}
+        <div>${r.name}</div>
+        <div class="stars">${stars(r.star)}</div>
       </div>`
     )
     .join("");
 
   const overlay = h(`
     <div class="reveal ${best === 5 ? "flash-5" : ""}">
-      <div class="eyebrow">${best === 5 ? "✦ LENDA INVOCADA ✦" : best === 4 ? "Invocação Rara" : "Invocação"}</div>
+      <div class="eyebrow">${best === 5 ? "Lenda Invocada" : best === 4 ? "Invocação Rara" : "Invocação"}</div>
       <div class="reveal__cards">${cards}</div>
-      <div class="muted" style="font-size:.85rem">${
-        refund > 0 ? `Cópias converteram-se em +${refund} 💠 e progresso de nível.` : "&nbsp;"
+      <div class="muted" style="font-size:.82rem; min-height:1em">${
+        refund > 0 ? `Cópias converteram-se em +${refund} 💠 e progresso de nível.` : ""
       }</div>
-      <button class="btn btn--primary" data-close>Continuar</button>
+      <div class="reveal__hint">toque para continuar</div>
     </div>
   `);
   stage.appendChild(overlay);
-  overlay.querySelector("[data-close]").addEventListener("click", done);
+  // sem botão: toca em qualquer lugar para seguir (após um instante, p/ não pular sem querer)
+  let armed = false;
+  setTimeout(() => (armed = true), 350);
+  overlay.addEventListener("click", () => {
+    if (armed) done();
+  });
 }

@@ -32,7 +32,7 @@ export const EVENTS = [
         detail: "Ganha Fragmentos Universais, mas irrita os espíritos.",
         outcome: {
           text: "Você a arranca do chão. Vale muito — mas os sussurros ao redor não perdoam.",
-          effects: [{ t: "frag", n: 8 }, { t: "damagePct", n: 0.15 }],
+          effects: [{ t: "frag", n: 3 }, { t: "damagePct", n: 0.15 }],
         },
       },
       {
@@ -40,7 +40,7 @@ export const EVENTS = [
         detail: "Nada acontece. Ou quase.",
         outcome: {
           text: "Vocês seguem. Nas costas, a Semente brilha uma última vez, como um aceno.",
-          effects: [{ t: "frag", n: 2 }],
+          effects: [{ t: "frag", n: 1 }],
         },
       },
     ],
@@ -66,7 +66,7 @@ export const EVENTS = [
         detail: "O Rei Demônio não gosta de ser recusado.",
         outcome: {
           text: "O chão se fecha com um rosnado. Ivad sorri: — \"Achei que ele fosse mais persuasivo.\"",
-          effects: [{ t: "damagePct", n: 0.1 }, { t: "frag", n: 6 }],
+          effects: [{ t: "damagePct", n: 0.1 }, { t: "frag", n: 2 }],
         },
       },
     ],
@@ -161,7 +161,7 @@ export const EVENTS = [
         detail: "Segue reto. Covardia é uma tática.",
         outcome: {
           text: "O cofre explode sozinho três segundos depois. Boa decisão.",
-          effects: [{ t: "frag", n: 4 }],
+          effects: [{ t: "frag", n: 2 }],
         },
       },
     ],

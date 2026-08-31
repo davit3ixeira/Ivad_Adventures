@@ -8,16 +8,20 @@
   <link rel="icon" type="image/svg+xml" href="assets/other/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/screens.css" />
   <link rel="stylesheet" href="css/battle.css" />
 </head>
 <body>
   <div id="stars" aria-hidden="true"></div>
+  <div id="grain" aria-hidden="true"></div>
+  <div id="vignette" aria-hidden="true"></div>
 
   <header id="topbar" hidden>
-    <button class="topbar__home" data-nav="menu" title="Voltar ao Santuário">✦ Ivad</button>
+    <button class="topbar__home" data-nav="menu" title="Voltar ao Santuário">
+      <span class="topbar__sigil">✦</span><span>As Aventuras de Ivad</span>
+    </button>
     <div class="topbar__wallet">
       <span class="wallet__item" title="Fragmentos Universais — moeda de Invocação">
         <span class="wallet__icon">💠</span><span id="wallet-sementes">0</span>

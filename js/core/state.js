@@ -11,9 +11,8 @@ import { bus } from "./bus.js";
 import { HEROES, heroStats, xpForNext, LEVEL_CAP } from "../data/heroes.js";
 import { equipBonus, EQUIPMENT } from "../data/equipment.js";
 
-const SAVE_VERSION = 3; // v3: moedas (Fragmentos Universais / Gemas), equipamentos, carga por abate
-const START_FRAG = 100;
-const STARTER_HERO = "joao"; // tanque durável p/ começar; Davi (curandeiro) e Ivad vêm da Invocação
+const SAVE_VERSION = 4; // v4: começo sem herói, 20 Fragmentos iniciais, Tomos de Ascensão
+const START_FRAG = 20; // gacha-gated: o jogador invoca o primeiro esquadrão (Ivad incluso no pool)
 
 let _seq = 0;
 const newUid = () => `h${Date.now().toString(36)}${(_seq++).toString(36)}`;
@@ -27,7 +26,9 @@ function freshMeta() {
     pulls: 0, // total de invocações
     roster: [], // [{ uid, id, level, xp, dupes, equip:{arma,armadura,reliquia} }]
     squad: [], // [uid, ...] até 4
+    builds: [], // [{ id, name, squad:[uid,...] }] esquadrões salvos
     inventory: [], // [{ iid, id }] equipamentos obtidos
+    tomes: 0, // Tomos de Ascensão — sobem 1 nível de um herói (ganhos em batalha)
     unlockedChapter: 1,
     runsWon: 0,
     firstFivePity: 60, // 5★ garantido nesta contagem
@@ -61,16 +62,18 @@ export const state = {
         pulls: old.pulls ?? 0,
         roster: (old.roster || []).filter((e) => HEROES[e.id]).map((e) => ({ ...e, equip: e.equip || {} })),
         squad: (old.squad || []).slice(0, 4),
+        builds: old.builds || [],
         inventory: old.inventory || [],
+        tomes: old.tomes || 0,
         unlockedChapter: old.unlockedChapter ?? 1,
         runsWon: old.runsWon ?? 0,
       };
       this.run = null;
-      if (this.meta.roster.length === 0) this.grantHero(STARTER_HERO, { quiet: true });
+      // (não concede herói inicial — jogadores antigos mantêm a coleção que já têm)
     } else {
+      // jogo novo: sem herói nenhum, só os 20 Fragmentos para a primeira invocação
       this.meta = freshMeta();
       this.run = null;
-      this.grantHero(STARTER_HERO, { quiet: true });
     }
     this.persist();
     return this;
@@ -85,7 +88,6 @@ export const state = {
     storage.wipe();
     this.meta = freshMeta();
     this.run = null;
-    this.grantHero(STARTER_HERO, { quiet: true });
     this.persist();
     bus.emit("state:reset");
   },
@@ -211,6 +213,36 @@ export const state = {
     return "ok";
   },
 
+  // ---------------------------------------------------- esquadrões salvos (builds)
+  saveBuild(name) {
+    const squad = this.meta.squad.filter((uid) => this.getEntry(uid)).slice(0, 4);
+    if (!squad.length) return null;
+    const build = {
+      id: newUid(),
+      name: (name || "").trim() || `Esquadrão ${this.meta.builds.length + 1}`,
+      squad,
+    };
+    this.meta.builds.push(build);
+    this.persist();
+    bus.emit("roster:changed");
+    return build;
+  },
+
+  loadBuild(id) {
+    const build = this.meta.builds.find((b) => b.id === id);
+    if (!build) return false;
+    this.meta.squad = build.squad.filter((uid) => this.getEntry(uid)).slice(0, 4);
+    this.persist();
+    bus.emit("roster:changed");
+    return true;
+  },
+
+  deleteBuild(id) {
+    this.meta.builds = this.meta.builds.filter((b) => b.id !== id);
+    this.persist();
+    bus.emit("roster:changed");
+  },
+
   awardHeroXp(uid, amount) {
     const entry = this.getEntry(uid);
     if (!entry) return null;
@@ -220,6 +252,27 @@ export const state = {
     this.persist();
     bus.emit("roster:changed");
     return { entry, leveledUp: entry.level > before, from: before };
+  },
+
+  // ---------------------------------------------------- Tomos de Ascensão
+  addTomes(n) {
+    this.meta.tomes = Math.max(0, (this.meta.tomes || 0) + n);
+    this.persist();
+    bus.emit("roster:changed");
+  },
+
+  /** Gasta 1 Tomo para subir 1 nível cheio do herói. */
+  useTome(uid) {
+    const entry = this.getEntry(uid);
+    if (!entry || (this.meta.tomes || 0) <= 0) return { error: "sem-tomo" };
+    if (entry.level >= LEVEL_CAP) return { error: "nivel-max" };
+    this.meta.tomes -= 1;
+    const before = entry.level;
+    entry.xp += xpForNext(entry.level);
+    bumpLevel(entry);
+    this.persist();
+    bus.emit("roster:changed");
+    return { entry, from: before, to: entry.level };
   },
 
   // ---------------------------------------------------- capítulos

@@ -272,11 +272,16 @@ export function recordBattleWin(node) {
   const isElite = node.type === "elite";
   const isBoss = node.type === "boss";
 
-  const fragDrop = isBoss ? chapter.reward.frag : isElite ? 6 : 3;
+  // Fragmentos ficaram escassos: o grosso da moeda de Invocação vem só de chefes.
+  const fragDrop = isBoss ? chapter.reward.frag : isElite ? 2 : rng.chance(0.5) ? 1 : 0;
   const gemaDrop = isBoss ? 40 : isElite ? 22 : rng.int(8, 14);
 
   state.addFrag(fragDrop);
   addGemas(gemaDrop);
+
+  // Tomo de Ascensão — sobe 1 nível de um herói. Chefe garante; senão, chance.
+  const tomeDrop = isBoss ? 2 : isElite ? (rng.chance(0.35) ? 1 : 0) : rng.chance(0.08) ? 1 : 0;
+  if (tomeDrop) state.addTomes(tomeDrop);
 
   // relíquias com "bounty" (ex.: Semente Rachada)
   relicTriggers()
@@ -292,7 +297,7 @@ export function recordBattleWin(node) {
 
   clearNode(node.id);
 
-  const rewards = { frag: fragDrop, gemas: gemaDrop, relic: null, equip: null };
+  const rewards = { frag: fragDrop, gemas: gemaDrop, tome: tomeDrop, relic: null, equip: null };
   if (isBoss || isElite || rng.chance(0.18)) rewards.relic = addRelic();
   // drop de equipamento: chefe garante, elite 50%, batalha 12%
   if (isBoss || (isElite && rng.chance(0.5)) || rng.chance(0.12)) {
@@ -338,7 +343,8 @@ export function syncSquadHP(battleUnits, fusion) {
   state.run.squad.forEach((u) => {
     const bu = byUid.get(u.uid);
     if (bu) {
-      u.curHP = bu.alive ? Math.max(1, Math.round(bu.curHP)) : 0;
+      // clampa ao HP-base da run (formas de transformação inflam o maxHP só na batalha)
+      u.curHP = bu.alive ? Math.min(u.base.maxHP, Math.max(1, Math.round(bu.curHP))) : 0;
       u.charge = bu.charge || 0; // a barrinha do Especial segue para a próxima batalha
     }
   });

@@ -111,10 +111,10 @@ export function heroSheet(view) {
 }
 
 export function emptyState(icon, title, sub) {
-  return `<div class="center" style="min-height:40vh; text-align:center">
+  return `<div class="empty-state">
     <div>
-      <div style="font-size:3rem">${icon}</div>
-      <h3 style="margin:10px 0 4px">${title}</h3>
+      <div class="icon">${icon}</div>
+      <h3>${title}</h3>
       <p class="muted">${sub || ""}</p>
     </div>
   </div>`;

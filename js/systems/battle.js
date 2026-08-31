@@ -168,6 +168,12 @@ export function createBattle(run, node) {
         active: HEROES[u.id].active ?? null,
         charge: Math.min(HEROES[u.id].active?.charge ?? 0, u.charge || 0), // carga acumulada da run
         chargeMax: HEROES[u.id].active?.charge ?? 0,
+        // ── transformação (formas do livro) ──
+        forms: HEROES[u.id].forms || null,
+        transformCharge: 0, // barra separada, +1 ao fim de cada turno (nada no turno 1)
+        transformMax: 3,
+        formId: null,
+        baseForm: null, // snapshot p/ subir de forma
         guard: 0,
         buffs: null,
         reflectPending: false,
@@ -689,6 +695,7 @@ export async function runEnemyTurn(battle, hooks) {
       u.acted = false;
       u.guard = 0; // o Domo protegeu durante este turno inimigo
       u.reflectPending = false; // Reflexo Total dura um turno
+      if (u.forms && (u.transformCharge || 0) < (u.transformMax || 3)) u.transformCharge = (u.transformCharge || 0) + 1;
       if (u.buffs) {
         u.buffs.turns -= 1;
         if (u.buffs.turns <= 0) u.buffs = null;
@@ -988,4 +995,69 @@ export function useActive(battle, unit, aim) {
   battle.log.push(`✨✨ ${unit.name} usou ${a.name}!`);
   updateOutcome(battle);
   return { name: a.name, banner: a.banner, fx: a.fx, kind: a.kind, from, aim: aim || from, affected };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRANSFORMAÇÃO — formas do livro, no meio da batalha (estilo Sparking Zero)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Formas que `unit` pode assumir agora (barra suficiente e forma mais avançada). */
+export function availableForms(battle, unit) {
+  if (!unit || unit.team !== "ally" || !unit.forms || battle.phase !== "player" || battle.over) return [];
+  const curIdx = unit.formId ? unit.forms.findIndex((f) => f.id === unit.formId) : -1;
+  return unit.forms.filter((f, i) => i > curIdx && (unit.transformCharge || 0) >= f.cost);
+}
+
+/** Aplica a forma. Não gasta a ação do herói — só a barra de Transformação. */
+export function doTransform(battle, unit, formId) {
+  if (!unit.forms || unit.team !== "ally" || battle.phase !== "player" || battle.over) return null;
+  const form = unit.forms.find((f) => f.id === formId);
+  if (!form || (unit.transformCharge || 0) < form.cost) return null;
+
+  // snapshot da forma-base (uma vez) p/ permitir subir de forma sem acumular
+  const b =
+    unit.baseForm ||
+    (unit.baseForm = {
+      name: unit.name,
+      emoji: unit.emoji,
+      types: unit.types,
+      stats: { ...unit.stats },
+      maxHP: unit.maxHP,
+      skill: unit.skill,
+      active: unit.active,
+    });
+
+  const hpFrac = unit.maxHP > 0 ? unit.curHP / unit.maxHP : 1;
+  const m = form.statMul || {};
+  unit.stats = {
+    atk: Math.round(b.stats.atk * (m.atk || 1)),
+    def: Math.round(b.stats.def * (m.def || 1)),
+    spd: Math.round(b.stats.spd * (m.spd || 1)),
+    mov: b.stats.mov + (m.mov || 0),
+    rng: b.stats.rng + (m.rng || 0),
+  };
+  unit.maxHP = Math.round(b.maxHP * (m.maxHP || 1));
+  unit.curHP = Math.max(1, Math.round(unit.maxHP * hpFrac));
+  unit.types = form.types || b.types;
+  unit.name = form.name;
+  unit.emoji = form.emoji;
+  unit.skill = form.skill?.effect || b.skill;
+  unit.active = form.active || b.active;
+  unit.chargeMax = form.active?.charge ?? unit.chargeMax;
+  unit.charge = Math.min(unit.chargeMax, unit.charge);
+  unit.transformCharge -= form.cost;
+  unit.formId = form.id;
+  if (form.cost >= 3) unit.big = true;
+
+  battle.lastAllyActor = unit.key;
+  battle.log.push(`🔥🔥 ${b.name} assume a ${form.name}!`);
+  updateOutcome(battle);
+  return {
+    name: form.name,
+    banner: form.banner,
+    fx: "impact",
+    from: { x: unit.x, y: unit.y },
+    aim: { x: unit.x, y: unit.y },
+    affected: [{ x: unit.x, y: unit.y }],
+  };
 }

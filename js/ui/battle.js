@@ -31,6 +31,8 @@ import {
   activeTargetTiles,
   canFuse,
   doFusion,
+  availableForms,
+  doTransform,
 } from "../systems/battle.js";
 import { recordBattleWin, endRunDefeat, syncSquadHP } from "../systems/run.js";
 
@@ -41,6 +43,7 @@ let battle = null;
 let nodeId = null;
 let busy = false;
 let sel = null;
+let resizeHandler = null;
 /* sel = {
      unit, origin:{x,y},
      moveRange: Map<"x,y",cost>,        FIXO — calculado uma vez na seleção
@@ -82,6 +85,30 @@ export function renderBattle(mount, params) {
   );
 
   paint();
+  requestAnimationFrame(paint); // recalcula o tamanho da casa quando o layout assenta
+
+  if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+  resizeHandler = () => {
+    if (document.getElementById("grid")) paint();
+  };
+  window.addEventListener("resize", resizeHandler);
+}
+
+/**
+ * Tamanho da casa que faz o tabuleiro inteiro caber sem rolagem vertical.
+ * Mede o palco e desconta espaços FIXOS (banner + barra de ações) — assim
+ * a barra de ações crescer/encolher não empurra o mapa nem cria scroll.
+ */
+function fitCell(g) {
+  const stage = document.getElementById("stage");
+  const wrap = document.querySelector(".grid-wrap");
+  if (!stage || !wrap || !stage.clientHeight || !wrap.clientWidth) return 60;
+  const onFixed = document.body.dataset.route === "battle" && window.matchMedia("(min-width: 941px) and (min-height: 561px)").matches;
+  if (!onFixed) return 60; // layout com rolagem (telas pequenas): casa cheia
+  const avail = stage.clientHeight - 52 /*banner*/ - 84 /*ações (hint + botões)*/ - 20 /*padding*/;
+  const byH = avail / g.h;
+  const byW = (wrap.clientWidth - 10) / g.w;
+  return Math.max(30, Math.min(60, Math.floor(Math.min(byW, byH)) - 3));
 }
 
 /* ───────────────────────── posição visual do herói ───────────────────────── */
@@ -130,8 +157,9 @@ function paint() {
   const grid = document.getElementById("grid");
   if (!grid) return;
   const g = battle.grid;
-  grid.style.setProperty("--cell", "60px");
-  grid.style.gridTemplateColumns = `repeat(${g.w}, 60px)`;
+  const cell = fitCell(g);
+  grid.style.setProperty("--cell", `${cell}px`);
+  grid.style.gridTemplateColumns = `repeat(${g.w}, ${cell}px)`;
 
   const moveSet = sel && !sel.special ? sel.moveRange : null;
   const tgts = sel && !sel.special ? currentTargets() : new Map();
@@ -238,11 +266,19 @@ function unitHTML(u, highlighted, armed) {
   }
   const buff = u.buffs ? '<span class="unit__buff">▲</span>' : u.guard ? '<span class="unit__buff">🛡️</span>' : "";
 
+  let tbar = "";
+  if (u.team === "ally" && u.forms) {
+    const tp = Math.min(100, ((u.transformCharge || 0) / (u.transformMax || 3)) * 100);
+    const canT = !u.acted && availableForms(battle, u).length > 0;
+    tbar = `<span class="unit__tbar ${canT ? "is-ready" : ""}" title="Transformação ${u.transformCharge || 0}/${u.transformMax || 3}"><i style="width:${tp}%"></i>${canT ? "<em>🔥</em>" : ""}</span>`;
+  }
+  const formCls = u.formId ? "is-form" : "";
+
   return `
-    <div class="unit side-${side} ${isSel} ${done} ${tgtCls} ${armedCls} ${readyCls} ${bigCls}" data-unit="${u.key}">
+    <div class="unit side-${side} ${isSel} ${done} ${tgtCls} ${armedCls} ${readyCls} ${bigCls} ${formCls}" data-unit="${u.key}">
       ${portrait(u.team === "ally" ? "heroes" : "enemies", artId, u.emoji)}
       <span class="unit__aff aff-${typeClass(u.types)}"></span>
-      ${charge}${buff}
+      ${charge}${tbar}${buff}
       <span class="unit__hp ${low ? "is-low" : ""}"><i style="width:${Math.max(0, (u.curHP / u.maxHP) * 100)}%"></i></span>
     </div>`;
 }
@@ -450,6 +486,66 @@ async function castSpecial(aim) {
   await finishTurnIfDone();
 }
 
+/* ───────────────────────────── transformação ───────────────────────────── */
+function enterTransform() {
+  if (busy || !sel) return;
+  const u = sel.unit;
+  const affordable = availableForms(battle, u);
+  if (!affordable.length) return;
+
+  const curIdx = u.formId ? u.forms.findIndex((f) => f.id === u.formId) : -1;
+  const choosable = u.forms.filter((_, i) => i > curIdx); // formas ainda possíveis (inclui as caras)
+  if (choosable.length === 1) return castTransform(choosable[0].id);
+
+  const bar = u.transformCharge || 0;
+  const rows = choosable
+    .map((f) => {
+      const ok = bar >= f.cost;
+      return `<button class="choice ${ok ? "" : "is-locked"}" ${ok ? `data-form="${f.id}"` : "disabled"}>
+        <b>${f.emoji} ${f.name} <span class="rank-tag">${f.cost} 🔥</span></b>
+        <small>${ok ? f.active?.text || "" : `precisa de ${f.cost} de barra 🔥 (você tem ${bar})`}</small>
+      </button>`;
+    })
+    .join("");
+  const { box, close } = modal(
+    `<h2 style="margin-bottom:6px">Transformação — ${u.name}</h2>
+     <p class="muted" style="margin-bottom:12px">Barra 🔥 ${bar}/${u.transformMax || 3}. Escolha a forma — a mais forte gasta tudo. Não gasta a ação do herói.</p>
+     <div class="choice-list">${rows}</div>`
+  );
+  box.querySelectorAll("[data-form]").forEach((b) =>
+    b.addEventListener("click", () => {
+      close();
+      castTransform(b.dataset.form);
+    })
+  );
+}
+
+async function castTransform(formId) {
+  if (busy || !sel) return;
+  const unit = sel.unit;
+  busy = true;
+  const data = doTransform(battle, unit, formId);
+  if (!data) {
+    busy = false;
+    paint();
+    return;
+  }
+  playSfx("special");
+  sel = null;
+  paint();
+  document.getElementById("stage")?.classList.add("shake");
+  setTimeout(() => document.getElementById("stage")?.classList.remove("shake"), 460);
+  await showSkillBanner(data);
+  await playFx(data);
+  paint();
+  await sleep(260);
+  busy = false;
+  if (checkEnd()) return;
+  const un = battle.units.find((z) => z.key === unit.key && z.alive);
+  if (un && !un.acted && battle.phase === "player") selectUnit(un);
+  else paint();
+}
+
 async function castFusion() {
   if (busy || !canFuse(battle)) return;
   busy = true;
@@ -603,9 +699,15 @@ function renderActions() {
     ? `<button class="btn ${ready ? "btn--gold spec-ready" : "btn--ghost"} btn--sm" id="special" ${ready ? "" : "disabled"}>
          ✨ ${u.active.name}${ready ? "" : ` ${u.charge}/${u.chargeMax}`}</button>`
     : "";
+  const forms = availableForms(battle, u);
+  const trans = forms.length
+    ? `<button class="btn btn--gold spec-ready btn--sm" id="transform">🔥 Transformar (${forms[0].cost})</button>`
+    : u.forms
+    ? `<button class="btn btn--ghost btn--sm" disabled>🔥 ${u.transformCharge || 0}/${u.transformMax || 3}</button>`
+    : "";
   bar.innerHTML = `
     <span class="dim" style="font-size:.8rem">Toque num alvo ⚔ ou numa casa azul.</span>
-    ${spec}
+    ${spec}${trans}
     <button class="btn btn--sm" id="wait">Aguardar</button>
     ${
       sel.movedManually
@@ -613,6 +715,7 @@ function renderActions() {
         : '<button class="btn btn--ghost btn--sm" id="cancel">Cancelar</button>'
     }`;
   bar.querySelector("#special")?.addEventListener("click", enterSpecial);
+  bar.querySelector("#transform")?.addEventListener("click", enterTransform);
   bar.querySelector("#wait").addEventListener("click", commitWait);
   bar.querySelector("#cancel")?.addEventListener("click", deselect);
   bar.querySelector("#back")?.addEventListener("click", () => {
@@ -646,10 +749,16 @@ function renderInspectUnit(u) {
   const box = document.getElementById("inspect");
   if (!box) return;
   const def = HEROES[heroIdOf(u)];
+  const form = u.formId && def?.forms?.find((f) => f.id === u.formId);
+  const skillName = form ? form.skill.name : def?.skill.name;
+  const skillText = form ? form.skill.text : def?.skill.text;
+  const actName = form ? form.active?.name : def?.active?.name;
+  const actText = form ? form.active?.text : def?.active?.text;
+  const forms = availableForms(battle, u);
   box.innerHTML = `
     <h3>${u.name}</h3>
     <div class="unit-inspect">
-      <div class="name">${typeIcons(u.types)} ${typeLabel(u.types)}</div>
+      <div class="name">${typeIcons(u.types)} ${typeLabel(u.types)}${form ? " · 🔥 forma" : ""}</div>
       ${hpBar(u.curHP, u.maxHP)}
       <div class="muted" style="margin-top:4px; font-size:.8rem">${Math.round(u.curHP)}/${u.maxHP} HP${u.buffs ? " · +ATK" : ""}${u.guard ? " · 🛡️" : ""}</div>
       <div class="grid4">
@@ -658,12 +767,23 @@ function renderInspectUnit(u) {
         <span><b>${u.stats.spd}</b>SPD</span>
         <span><b>${u.stats.mov}</b>MOV</span>
       </div>
-      ${def ? `<p class="skill-p"><b>Passiva · ${def.skill.name}</b><br>${def.skill.text}</p>` : ""}
+      ${skillName ? `<p class="skill-p"><b>Passiva · ${skillName}</b><br>${skillText}</p>` : ""}
       ${
-        def?.active
-          ? `<p class="skill-p ${u.charge >= u.chargeMax ? "is-ready" : ""}"><b>✨ ${def.active.name} — ${
+        actName
+          ? `<p class="skill-p ${u.charge >= u.chargeMax ? "is-ready" : ""}"><b>✨ ${actName} — ${
               u.charge >= u.chargeMax ? "PRONTO" : `${u.charge}/${u.chargeMax}`
-            }</b><br>${def.active.text}</p>`
+            }</b><br>${actText}</p>`
+          : ""
+      }
+      ${
+        u.forms
+          ? `<p class="skill-p ${forms.length ? "is-ready" : ""}"><b>🔥 Transformação — ${u.transformCharge || 0}/${u.transformMax || 3}</b><br>${
+              forms.length
+                ? forms.map((f) => `${f.emoji} ${f.name} (${f.cost})`).join(" · ")
+                : u.formId
+                ? "forma máxima atingida"
+                : "carrega +1 por turno"
+            }</p>`
           : ""
       }
     </div>`;

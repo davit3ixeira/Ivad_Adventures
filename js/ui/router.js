@@ -18,6 +18,7 @@ export const router = {
       return;
     }
     currentName = name;
+    document.body.dataset.route = name;
     const mount = document.getElementById("app");
     mount.innerHTML = "";
     window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });

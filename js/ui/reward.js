@@ -23,8 +23,17 @@ export function renderReward(mount, { nodeId, mode = "upgrade", outcome = null }
   const rewardCards =
     mode === "battle" && outcome
       ? `<div class="reward-grid" style="margin-bottom:28px">
-          <div class="reward-card" style="cursor:default"><span class="emoji">💠</span><b>+${outcome.rewards.frag}</b><p>Fragmentos Universais</p></div>
+          ${
+            outcome.rewards.frag > 0
+              ? `<div class="reward-card" style="cursor:default"><span class="emoji">💠</span><b>+${outcome.rewards.frag}</b><p>Fragmentos Universais</p></div>`
+              : ""
+          }
           <div class="reward-card" style="cursor:default"><span class="emoji">💎</span><b>+${outcome.rewards.gemas}</b><p>Gemas</p></div>
+          ${
+            outcome.rewards.tome > 0
+              ? `<div class="reward-card" style="cursor:default"><span class="emoji">📖</span><b>+${outcome.rewards.tome}</b><p>Tomo${outcome.rewards.tome > 1 ? "s" : ""} de Ascensão</p></div>`
+              : ""
+          }
           ${
             outcome.rewards.relic
               ? `<div class="reward-card" style="cursor:default"><span class="emoji">${outcome.rewards.relic.emoji}</span><b>${outcome.rewards.relic.name}</b><p>${outcome.rewards.relic.text}</p></div>`
@@ -42,15 +51,17 @@ export function renderReward(mount, { nodeId, mode = "upgrade", outcome = null }
       : "";
 
   const el = h(`
-    <section>
+    <section class="reward-screen">
       <div class="screen-head" style="text-align:center">
-        <div class="eyebrow">${mode === "battle" ? (isBoss ? "✦ Chefe derrotado ✦" : "Vitória") : "Recompensa"}</div>
+        <div class="eyebrow">${mode === "battle" ? (isBoss ? "Chefe derrotado" : "Vitória") : "Recompensa"}</div>
         <h1 class="screen-title">${mode === "battle" ? "Espólios de Batalha" : "Carta de Mácula"}</h1>
-        <p class="screen-sub" style="margin:6px auto 0">Escolha 1 melhoria temporária para o esquadrão nesta run.</p>
       </div>
       ${rewardCards}
-      <div class="reward-grid" id="ups"></div>
-      <div class="row" style="justify-content:center; margin-top:24px">
+      <div class="reward-draft">
+        <div class="reward-draft__label"><span>✦ Carta de Mácula</span><small>escolha 1 melhoria para esta run</small></div>
+        <div class="reward-grid" id="ups"></div>
+      </div>
+      <div class="row" style="justify-content:center; margin-top:26px">
         <button class="btn btn--ghost btn--sm" data-skip>Dispensar melhoria</button>
       </div>
     </section>

@@ -7,7 +7,7 @@ import { router } from "./router.js";
 import { modal, toast } from "./toast.js";
 import { h, heroCard, heroSheet, stars, emptyState } from "./components.js";
 import { portrait } from "../data/manifest.js";
-import { HEROES } from "../data/heroes.js";
+import { HEROES, LEVEL_CAP } from "../data/heroes.js";
 import { openChapterSelect } from "./menu.js";
 import { EQUIPMENT, EQUIP_SLOTS, RANKS, availableForSlot } from "../data/equipment.js";
 
@@ -20,12 +20,13 @@ export function renderRoster(mount) {
         <div>
           <div class="eyebrow">Quartel</div>
           <h1 class="screen-title">Coleção &amp; Esquadrão</h1>
-          <p class="screen-sub">Escale até 4 heróis. Toque num herói para ver a ficha e equipar itens do 🎒 Arsenal (${state.meta.inventory.length}).</p>
+          <p class="screen-sub">Escale até 4 heróis. Toque num herói para a ficha, equipar o 🎒 Arsenal (<span id="arsenal-n">${state.meta.inventory.length}</span>) ou gastar 📖 Tomos de Ascensão (<span id="tome-n">${state.meta.tomes || 0}</span>).</p>
         </div>
         <button class="btn btn--primary" id="go-run">⚔️ Escolher Capítulo</button>
       </div>
 
       <div class="squad-bar" id="squad-bar"></div>
+      <div class="builds-bar" id="builds-bar"></div>
 
       <div class="roster-toolbar" id="filters">
         <button class="chip ${filter === "all" ? "is-active" : ""}" data-f="all">Todos</button>
@@ -63,6 +64,38 @@ export function renderRoster(mount) {
     );
   };
 
+  const renderBuilds = () => {
+    const wrap = el.querySelector("#builds-bar");
+    const builds = state.meta.builds || [];
+    wrap.innerHTML = `
+      <span class="builds-bar__label">🎖️ Esquadrões salvos</span>
+      ${
+        builds
+          .map(
+            (b) => `<span class="build-chip" data-load="${b.id}" title="Carregar “${b.name}”">
+              <span>${b.name}</span><small>${b.squad.length}/4</small>
+              <button class="build-chip__x" data-del="${b.id}" title="Apagar">✕</button>
+            </span>`
+          )
+          .join("") || '<span class="muted" style="font-size:.8rem">nenhum salvo — monte um esquadrão e clique em “Salvar atual”.</span>'
+      }
+      <button class="btn btn--ghost btn--sm" id="save-build">＋ Salvar atual</button>`;
+    wrap.querySelectorAll("[data-load]").forEach((c) =>
+      c.addEventListener("click", (e) => {
+        if (e.target.closest("[data-del]")) return;
+        state.loadBuild(c.dataset.load);
+        toast("Esquadrão carregado.", "good");
+      })
+    );
+    wrap.querySelectorAll("[data-del]").forEach((b) =>
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        state.deleteBuild(b.dataset.del);
+      })
+    );
+    wrap.querySelector("#save-build").addEventListener("click", saveBuildPrompt);
+  };
+
   const renderGrid = () => {
     const grid = el.querySelector("#roster-grid");
     let list = state.rosterView();
@@ -97,13 +130,45 @@ export function renderRoster(mount) {
   });
 
   renderSquad();
+  renderBuilds();
   renderGrid();
 
   // re-render reativo enquanto a tela existe
   const off = bus.on("roster:changed", () => {
     if (!document.body.contains(el)) return off();
+    const tn = el.querySelector("#tome-n");
+    const an = el.querySelector("#arsenal-n");
+    if (tn) tn.textContent = state.meta.tomes || 0;
+    if (an) an.textContent = state.meta.inventory.length;
     renderSquad();
+    renderBuilds();
     renderGrid();
+  });
+}
+
+function saveBuildPrompt() {
+  if (state.squadEntries().length === 0) return toast("Monte um esquadrão primeiro.", "bad");
+  const { box, close } = modal(`
+    <h2 style="margin-bottom:6px">Salvar esquadrão</h2>
+    <p class="muted" style="margin-bottom:12px">Guarde essa formação para recarregar depois com um toque.</p>
+    <input id="build-name" placeholder="Nome (opcional)" maxlength="24"
+      style="width:100%;padding:10px 12px;margin-bottom:14px;border-radius:10px;border:1px solid var(--hair-2);background:var(--bg-2);color:var(--text);font:inherit" />
+    <div class="row">
+      <button class="btn btn--primary" data-ok>Salvar</button>
+      <button class="btn btn--ghost" data-cancel>Cancelar</button>
+    </div>
+  `);
+  const done = () => {
+    state.saveBuild(box.querySelector("#build-name").value);
+    close();
+    toast("Esquadrão salvo.", "good");
+  };
+  box.querySelector("[data-ok]").addEventListener("click", done);
+  box.querySelector("[data-cancel]").addEventListener("click", close);
+  const input = box.querySelector("#build-name");
+  input.focus();
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") done();
   });
 }
 
@@ -152,6 +217,15 @@ function openHeroSheet(uid) {
         }
         ${equipRow(entry)}
       </div>
+      <div class="skill-line">
+        <b style="color:var(--ki)">📖 Tomo de Ascensão</b>
+        <div class="muted" style="font-size:.78rem;margin:2px 0 8px">
+          Você tem <b>${state.meta.tomes || 0}</b>. Cada Tomo sobe 1 nível cheio deste herói.
+        </div>
+        <button class="btn btn--sm" data-tome ${(state.meta.tomes || 0) <= 0 || entry.level >= LEVEL_CAP ? "disabled" : ""}>
+          ${entry.level >= LEVEL_CAP ? "Nível máximo" : `⬆ Subir para Nv ${entry.level + 1}`}
+        </button>
+      </div>
       <div class="row" style="margin-top:16px">
         <button class="btn ${inSquad ? "btn--ghost" : "btn--primary"}" data-toggle>
           ${inSquad ? "Remover do esquadrão" : "Adicionar ao esquadrão"}
@@ -159,6 +233,13 @@ function openHeroSheet(uid) {
         <button class="btn btn--ghost" data-close>Fechar</button>
       </div>`;
 
+    body.querySelector("[data-tome]")?.addEventListener("click", () => {
+      const r = state.useTome(uid);
+      if (r.error === "sem-tomo") return toast("Sem Tomos de Ascensão.", "bad");
+      if (r.error === "nivel-max") return toast("Herói já está no nível máximo.", "bad");
+      toast(`${HEROES[entry.id].name} subiu para o Nv ${r.to}! 📖`, "good");
+      render();
+    });
     body.querySelector("[data-close]").addEventListener("click", close);
     body.querySelector("[data-toggle]").addEventListener("click", () => {
       const r = state.toggleSquad(uid);

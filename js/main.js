@@ -34,11 +34,24 @@ const elSem = document.getElementById("wallet-sementes");
 const elFrag = document.getElementById("wallet-fragmentos");
 const fragWrap = document.getElementById("wallet-fragmentos-wrap");
 
+function bump(el) {
+  const pill = el.closest(".wallet__item");
+  if (!pill) return;
+  pill.classList.remove("is-bump");
+  void pill.offsetWidth; // reinicia a animação
+  pill.classList.add("is-bump");
+}
+
 function refreshWallet() {
-  elSem.textContent = state.meta.frag;
+  const frag = String(state.meta.frag);
+  if (elSem.textContent !== frag && elSem.textContent !== "") bump(elSem);
+  elSem.textContent = frag;
+
   if (state.run) {
     fragWrap.hidden = false;
-    elFrag.textContent = state.run.gemas;
+    const g = String(state.run.gemas);
+    if (elFrag.textContent !== g && elFrag.textContent !== "") bump(elFrag);
+    elFrag.textContent = g;
   } else {
     fragWrap.hidden = true;
   }

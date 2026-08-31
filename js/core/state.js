@@ -10,9 +10,9 @@ import { storage } from "./storage.js";
 import { bus } from "./bus.js";
 import { HEROES, heroStats, xpForNext, LEVEL_CAP } from "../data/heroes.js";
 
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2; // v2: sistema de tipos (físico/projeção/mana), rebalanço
 const STARTING_SEMENTES = 100;
-const STARTER_HERO = "davi"; // o jovem da Terra; Ivad (forma desperta) vem pela Invocação
+const STARTER_HERO = "joao"; // tanque durável p/ começar; Davi (curandeiro) e Ivad vêm da Invocação
 
 let _seq = 0;
 const newUid = () => `h${Date.now().toString(36)}${(_seq++).toString(36)}`;
@@ -49,6 +49,21 @@ export const state = {
     if (saved?.meta?.version === SAVE_VERSION) {
       this.meta = { ...freshMeta(), ...saved.meta };
       this.run = saved.run ?? null;
+    } else if (saved?.meta?.roster) {
+      // migração de versão anterior: mantém coleção e moedas, descarta a run
+      const old = saved.meta;
+      this.meta = {
+        ...freshMeta(),
+        sementes: old.sementes ?? STARTING_SEMENTES,
+        pity: old.pity ?? 0,
+        pulls: old.pulls ?? 0,
+        roster: (old.roster || []).filter((e) => HEROES[e.id]),
+        squad: (old.squad || []).slice(0, 4),
+        unlockedChapter: old.unlockedChapter ?? 1,
+        runsWon: old.runsWon ?? 0,
+      };
+      this.run = null;
+      if (this.meta.roster.length === 0) this.grantHero(STARTER_HERO, { quiet: true });
     } else {
       this.meta = freshMeta();
       this.run = null;

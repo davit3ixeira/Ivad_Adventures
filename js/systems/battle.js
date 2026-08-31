@@ -25,9 +25,10 @@ const ENEMY_TRAITS = {
   hilihilihi: { bulwark: 0.25 }, // névoa de ilusões
   helehelehe: { bulwark: 0.25 }, // pele de ferro
   halahalaha: { double: true, openerBonus: 0.15 }, // reflexos sobrenaturais + ímpeto
-  takimatida_sombrio: { double: true, omniCounter: true },
-  korlok: { rage: 2 },
-  haluhaluhu: { ignoreWheel: true, alwaysCounter: true, rage: 2 },
+  // ── chefes ──────────────────────────────────────────────
+  takimatida_sombrio: { double: true, omniCounter: true, cleave: 0.4 },
+  korlok: { rage: 3, cleave: 0.55 },
+  haluhaluhu: { ignoreWheel: true, alwaysCounter: true, rage: 3, cleave: 0.6, bulwark: 0.15 },
 };
 
 // --------------------------------------------------------------- construção
@@ -90,8 +91,9 @@ function aggregateAura() {
 
 function effectiveAllyStats(u) {
   const s = { ...u.base };
+  const types = u.types || [];
   for (const m of modList()) {
-    if (m.affin && m.affin !== u.aff) continue;
+    if (m.affin && !types.includes(m.affin)) continue;
     s.atk += m.atkBonus || 0;
     s.def += m.defBonus || 0;
     s.spd += m.spdBonus || 0;
@@ -151,7 +153,7 @@ export function createBattle(run, node) {
         team: "ally",
         name: u.name,
         emoji: u.emoji,
-        aff: u.aff,
+        types: HEROES[u.id].types || ["fisico"],
         role: u.role,
         x: spot.x,
         y: spot.y,
@@ -191,7 +193,7 @@ export function createBattle(run, node) {
       enemyId: slot.def.id,
       name: slot.def.name,
       emoji: slot.def.emoji,
-      aff: slot.def.aff,
+      types: slot.def.types || ["fisico"],
       kind: slot.def.kind,
       side: slot.role === "boss" ? "boss" : "enemy",
       ai: slot.def.ai,
@@ -298,7 +300,7 @@ function strike(battle, src, tgt, ctx) {
   const srcAura = src.team === "ally" ? battle.aura : {};
   const tgtAura = tgt.team === "ally" ? battle.aura : {};
 
-  const mult = affinityMultiplier(src.aff, tgt.aff, tgt.traits?.ignoreWheel);
+  const mult = affinityMultiplier(src.types, tgt.types, tgt.traits?.ignoreWheel || src.traits?.ignoreWheel);
 
   let tgtDef = tgt.stats.def + terrainDefBonus(battle.grid.tiles[tgt.y][tgt.x]);
   if (src.skill?.type === "pierce") tgtDef -= src.skill.flat || 0;
@@ -315,7 +317,6 @@ function strike(battle, src, tgt, ctx) {
   if (src.skill?.type === "opener" && ctx.initiating && ctx.firstOfCombat && !src.tookDamage) bonus += src.skill.pct;
   if (src.traits?.openerBonus && ctx.initiating && ctx.firstOfCombat) bonus += src.traits.openerBonus;
   if (src.skill?.type === "safeShot" && ctx.initiating && manhattan(src, tgt) > tgt.stats.rng) bonus += src.skill.pct;
-  if (src.skill?.type === "riposte" && !ctx.initiating) bonus += src.skill.pct; // Kão-Woji: reflete com o dobro da força
   if (src.skill?.type === "packHunt") {
     const adj = battle.units.filter(
       (u) => u.alive && u.team === src.team && u.key !== src.key && manhattan(u, tgt) === 1
@@ -358,13 +359,24 @@ function strike(battle, src, tgt, ctx) {
     }
   }
 
-  // Reflexo Total (Kão-Woji): devolve 100% do golpe ao agressor
-  if (tgt.reflectPending && tgt.team === "ally" && src.team === "enemy") {
-    tgt.reflectPending = false;
-    src.curHP -= dmg;
-    battle.floaters.push({ x: src.x, y: src.y, text: `-${dmg}`, kind: "crit" });
-    battle.log.push(`🪞 ${tgt.name} reflete ${dmg} de volta em ${src.name}!`);
-    handleDeath(battle, src);
+  // devolução de dano ao agressor inimigo (só quando o herói está DEFENDENDO)
+  if (src.team === "enemy" && tgt.team === "ally" && src.alive) {
+    let back = 0;
+    if (tgt.reflectPending) {
+      // Reflexo Total (Kão-Woji, ativo): 100%, uma vez
+      tgt.reflectPending = false;
+      back = dmg;
+      battle.log.push(`🪞 ${tgt.name} reflete ${back} de volta em ${src.name}!`);
+    } else if (tgt.skill?.type === "thorns" && manhattan(src, tgt) <= 1) {
+      // Pele de Espinhos (Kão-Woji, passiva): parte do dano corpo a corpo
+      back = Math.round(dmg * (tgt.skill.pct || 0));
+      if (back > 0) battle.log.push(`🌵 ${src.name} se fere nos espinhos de ${tgt.name} (${back}).`);
+    }
+    if (back > 0) {
+      src.curHP -= back;
+      battle.floaters.push({ x: src.x, y: src.y, text: `-${back}`, kind: "crit" });
+      handleDeath(battle, src);
+    }
   }
 
   handleDeath(battle, tgt);
@@ -392,10 +404,25 @@ function handleDeath(battle, tgt) {
   }
 }
 
+/**
+ * Contra-ataque: SÓ acontece quando um HERÓI é o atacante (turno do jogador).
+ * No turno inimigo, o herói apanha sem revidar — a devolução de dano fica por
+ * conta de Pele de Espinhos / Reflexo Total do Kão-Woji.
+ */
 function canCounter(atk, def) {
   if (!def.alive || !atk.alive) return false;
+  if (atk.team !== "ally") return false; // inimigo atacando → herói não revida
   if (def.traits?.omniCounter || def.traits?.alwaysCounter) return true;
   return manhattan(atk, def) <= def.stats.rng;
+}
+
+/** Chefe com "cleave": o golpe também respinga nos heróis vizinhos do alvo. */
+function bossCleave(battle, boss, mainTarget) {
+  const pct = boss.traits?.cleave;
+  if (!pct || !boss.alive) return;
+  battle.units
+    .filter((u) => u.alive && u.team === mainTarget.team && u.key !== mainTarget.key && manhattan(u, mainTarget) === 1)
+    .forEach((u) => specialStrike(battle, boss, u, pct, { silent: true }));
 }
 
 export function resolveCombat(battle, atk, def) {
@@ -403,6 +430,7 @@ export function resolveCombat(battle, atk, def) {
   const from = battle.log.length;
 
   strike(battle, atk, def, { initiating: true, firstOfCombat: true });
+  if (atk.traits?.cleave) bossCleave(battle, atk, def);
 
   if (canCounter(atk, def)) strike(battle, def, atk, { initiating: false, firstOfCombat: false });
 
@@ -445,7 +473,7 @@ export function forecast(battle, atkKey, defKey, fromTile) {
   const defHP0 = def.curHP;
   resolveCombat(sim, atk, def);
   return {
-    aff: affinityState(atk.aff, def.aff),
+    aff: affinityState(atk.types, def.types),
     defFrom: defHP0,
     defTo: Math.max(0, def.curHP),
     defMax: def.maxHP,
@@ -645,22 +673,31 @@ function inBounds(battle, x, y) {
   return x >= 0 && y >= 0 && x < battle.grid.w && y < battle.grid.h;
 }
 
-/** Dano de especial: metade da armadura, ignora desvantagem de afinidade, sem revide. */
+/**
+ * Dano "especial" — usado pelos Especiais dos heróis E pelo cleave dos chefes.
+ * Metade da armadura, ignora desvantagem de afinidade, sem revide.
+ * opts: { pierce, silent, allyAura }  (allyAura força uso da aura do esquadrão)
+ */
 function specialStrike(battle, src, tgt, power, opts = {}) {
   if (!tgt || !tgt.alive) return 0;
-  let m = affinityMultiplier(src.aff, tgt.aff, tgt.traits?.ignoreWheel);
+  let m = affinityMultiplier(src.types, tgt.types, tgt.traits?.ignoreWheel || src.traits?.ignoreWheel);
   if (m < 1) m = 1;
   const atk = src.stats.atk + (src.buffs?.atk || 0);
   let def = tgt.stats.def * 0.5 + terrainDefBonus(battle.grid.tiles[tgt.y][tgt.x]);
   def = Math.max(0, def - (opts.pierce || 0));
   let dmg = Math.max(1, Math.round(atk * power * m) - Math.round(def));
-  dmg = Math.round(dmg * (1 + (battle.aura.dmgUp || 0)));
-  const reduce = Math.min(0.6, tgt.traits?.bulwark || 0);
+  if (src.team === "ally") dmg = Math.round(dmg * (1 + (battle.aura.dmgUp || 0)));
+  let reduce = tgt.traits?.bulwark || 0;
+  if (tgt.skill?.type === "bulwark") reduce += tgt.skill.pct || 0;
+  if (tgt.guard) reduce += tgt.guard;
+  if (tgt.team === "ally") reduce += battle.aura.dmgReduction || 0;
+  reduce = Math.min(0.8, reduce);
   dmg = Math.max(1, Math.round(dmg * (1 - reduce)));
   tgt.curHP -= dmg;
   tgt.tookDamage = true;
   battle.floaters.push({ x: tgt.x, y: tgt.y, text: `-${dmg}`, kind: "crit" });
-  battle.log.push(`✨ ${src.name} → ${tgt.name}: ${dmg}!`);
+  if (!opts.silent) battle.log.push(`✨ ${src.name} → ${tgt.name}: ${dmg}!`);
+  else battle.log.push(`💥 onda de choque atinge ${tgt.name} (${dmg}).`);
   handleDeath(battle, tgt);
   return dmg;
 }
@@ -785,14 +822,31 @@ export function useActive(battle, unit, aim) {
         if (u.curHP > before) battle.floaters.push({ x: u.x, y: u.y, text: `+${u.curHP - before}`, kind: "heal" });
         affected.push({ x: u.x, y: u.y });
       }
-      if (a.splash) {
+      // Bênção Divina: reergue os caídos
+      if (a.revive) {
         battle.units
-          .filter((u) => u.alive && u.team === "enemy" && manhattan(u, unit) === 1)
-          .forEach((e) => {
-            specialStrike(battle, unit, e, a.splash);
-            affected.push({ x: e.x, y: e.y });
+          .filter((u) => !u.alive && u.team === "ally")
+          .forEach((u) => {
+            u.alive = true;
+            u.curHP = Math.max(1, Math.round(a.revive * u.maxHP));
+            u.acted = true;
+            battle.floaters.push({ x: u.x, y: u.y, text: `✚${u.curHP}`, kind: "heal" });
+            battle.log.push(`✚ ${u.name} volta à luta!`);
+            affected.push({ x: u.x, y: u.y });
           });
       }
+      break;
+    }
+    case "aura": {
+      // onda de energia a partir do herói (Soco da Natureza)
+      const rad = a.radius || 2;
+      battle.units
+        .filter((u) => u.alive && u.team === "enemy" && manhattan(u, unit) <= rad)
+        .forEach((e) => {
+          specialStrike(battle, unit, e, a.power, { pierce: a.pierce || 0 });
+          affected.push({ x: e.x, y: e.y });
+        });
+      affected.push({ x: unit.x, y: unit.y });
       break;
     }
     case "shield": {

@@ -63,8 +63,8 @@ export const RELICS = [
     id: "pedra_dojo",
     name: "Pedra do Dojo",
     emoji: "🪨",
-    text: "Heróis de Natureza recebem +1 de movimento e +4 de Defesa.",
-    mod: { movBonus: 1, defBonus: 4, affin: "natureza" },
+    text: "Heróis do tipo Projeção recebem +1 de movimento e +4 de Defesa.",
+    mod: { movBonus: 1, defBonus: 4, affin: "projecao" },
   },
   {
     id: "manopla_korlok",

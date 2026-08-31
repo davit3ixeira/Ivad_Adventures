@@ -29,7 +29,7 @@ export function startRun(chapterId) {
       id: e.id,
       name: def.name,
       emoji: def.emoji,
-      aff: def.aff,
+      types: def.types || ["fisico"],
       role: def.role,
       lvl: e.level,
       base: { maxHP: s.maxHP, atk: s.atk, def: s.def, spd: s.spd, mov: s.mov, rng: s.rng },

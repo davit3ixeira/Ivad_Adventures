@@ -1,8 +1,9 @@
 /**
  * components.js — helpers de renderização compartilhados.
  */
-import { HEROES, AFFINITIES, xpForNext, LEVEL_CAP } from "../data/heroes.js";
+import { HEROES, xpForNext, LEVEL_CAP } from "../data/heroes.js";
 import { portrait } from "../data/manifest.js";
+import { typeClass, typeLabel, typeIcons } from "../systems/affinity.js";
 
 /** cria elemento a partir de string HTML */
 export function h(html) {
@@ -15,13 +16,14 @@ export function stars(n) {
   return "★".repeat(n) + "☆".repeat(Math.max(0, 5 - n));
 }
 
-export function affBadge(aff) {
-  const a = AFFINITIES[aff];
-  return `<span class="badge-aff aff-${aff}">${a.icon} ${a.label.split(" / ")[0]}</span>`;
+/** selo do(s) tipo(s): "⚔️ Físico", "🟢🔵 Projeção · Mana", "✨ Divino" */
+export function affBadge(types) {
+  const cls = typeClass(types);
+  return `<span class="badge-aff aff-${cls}">${typeIcons(types)} ${typeLabel(types)}</span>`;
 }
 
-export function affDot(aff) {
-  return `<span class="unit__aff aff-${aff}"></span>`;
+export function affDot(types) {
+  return `<span class="unit__aff aff-${typeClass(types)}"></span>`;
 }
 
 export function hpBar(cur, max) {
@@ -49,7 +51,7 @@ export function heroCard(view, opts = {}) {
         <span class="stars">${stars(def.star)}</span>
         <span class="hero-card__lvl">Nv ${view.level ?? 1}</span>
       </div>
-      <div class="hero-card__row" style="margin-top:6px">${affBadge(def.aff)}</div>
+      <div class="hero-card__row" style="margin-top:6px">${affBadge(def.types)}</div>
       ${
         opts.showXp !== false && view.level < LEVEL_CAP
           ? `<div class="bar bar--xp" style="margin-top:8px"><div class="bar__fill" style="width:${xpPct}%"></div></div>`
@@ -72,7 +74,7 @@ export function heroSheet(view) {
           <div class="dim" style="font-size:.85rem">${def.title}</div>
           <div class="row" style="--g:6px; margin-top:6px">
             <span class="stars rar-${def.star}" style="--rar:var(--r${def.star})">${stars(def.star)}</span>
-            ${affBadge(def.aff)}
+            ${affBadge(def.types)}
           </div>
         </div>
       </div>

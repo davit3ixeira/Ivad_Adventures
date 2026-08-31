@@ -16,8 +16,9 @@ import { router } from "./router.js";
 import { modal, toast } from "./toast.js";
 import { h, hpBar } from "./components.js";
 import { portrait, playSfx } from "../data/manifest.js";
-import { HEROES, AFFINITIES } from "../data/heroes.js";
+import { HEROES } from "../data/heroes.js";
 import { key } from "../systems/pathfind.js";
+import { typeClass, typeLabel, typeIcons } from "../systems/affinity.js";
 import {
   createBattle,
   computeMoveRange,
@@ -235,7 +236,7 @@ function unitHTML(u, highlighted, armed) {
   return `
     <div class="unit side-${side} ${isSel} ${done} ${tgtCls} ${armedCls} ${readyCls}" data-unit="${u.key}">
       ${portrait(u.team === "ally" ? "heroes" : "enemies", artId, u.emoji)}
-      <span class="unit__aff aff-${u.aff}"></span>
+      <span class="unit__aff aff-${typeClass(u.types)}"></span>
       ${charge}${buff}
       <span class="unit__hp ${low ? "is-low" : ""}"><i style="width:${Math.max(0, (u.curHP / u.maxHP) * 100)}%"></i></span>
     </div>`;
@@ -604,7 +605,8 @@ function renderInspectDefault() {
       <div class="row row--between"><span>Seus heróis</span><b>${allies.filter((u) => u.alive).length}/${allies.length}</b></div>
       <div class="row row--between"><span>Inimigos</span><b>${enemies.length}</b></div>
       <p class="muted" style="margin-top:8px; font-size:.8rem">
-        🔴 vence 🟢 · 🟢 vence 🔵 · 🔵 vence 🔴 (±30%). +5 de SPD = ataca 2×.<br>
+        ⚔️ Físico › 🟢 Projeção › 🔵 Mana › ⚔️ (±30%). +5 de SPD = ataca 2×.<br>
+        2 tipos = mais neutro · 3 tipos = Divino (ignora o triângulo).<br>
         O especial ✨ ganha 1 carga por turno para o último herói que você usar.
       </p>
     </div>`;
@@ -613,12 +615,11 @@ function renderInspectDefault() {
 function renderInspectUnit(u) {
   const box = document.getElementById("inspect");
   if (!box) return;
-  const aff = AFFINITIES[u.aff];
   const def = HEROES[heroIdOf(u)];
   box.innerHTML = `
     <h3>${u.name}</h3>
     <div class="unit-inspect">
-      <div class="name">${aff.icon} ${aff.label}</div>
+      <div class="name">${typeIcons(u.types)} ${typeLabel(u.types)}</div>
       ${hpBar(u.curHP, u.maxHP)}
       <div class="muted" style="margin-top:4px; font-size:.8rem">${Math.round(u.curHP)}/${u.maxHP} HP${u.buffs ? " · +ATK" : ""}${u.guard ? " · 🛡️" : ""}</div>
       <div class="grid4">
@@ -677,11 +678,10 @@ function renderArmedPanel(enemy, fc) {
 
 function inspectEnemy(u) {
   const box = document.getElementById("inspect");
-  const aff = AFFINITIES[u.aff];
   box.innerHTML = `
     <h3>${u.name}</h3>
     <div class="unit-inspect">
-      <div class="name">${aff.icon} ${aff.label}${u.kind === "boss" ? " · CHEFE" : u.kind === "elite" ? " · Elite" : ""}</div>
+      <div class="name">${typeIcons(u.types)} ${typeLabel(u.types)}${u.kind === "boss" ? " · CHEFE" : u.kind === "elite" ? " · Elite" : ""}</div>
       ${hpBar(u.curHP, u.maxHP)}
       <div class="muted" style="margin-top:4px; font-size:.8rem">${Math.round(u.curHP)}/${u.maxHP} HP</div>
       <div class="grid4">
@@ -700,8 +700,9 @@ function enemyTraitText(u) {
   if (t.openerBonus) b.push("primeiro golpe reforçado");
   if (t.omniCounter) b.push("revida a qualquer alcance");
   if (t.rage) b.push(`+${t.rage} ATK por turno`);
-  if (t.ignoreWheel) b.push("imune ao triângulo");
+  if (t.ignoreWheel) b.push("divino — ignora o triângulo");
   if (t.alwaysCounter) b.push("sempre revida");
+  if (t.cleave) b.push(`golpe em área (${Math.round(t.cleave * 100)}%)`);
   return b.join(" · ");
 }
 

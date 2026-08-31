@@ -105,17 +105,17 @@ export const UPGRADES = [
   },
   {
     id: "seiva_selvagem",
-    name: "Seiva Selvagem",
+    name: "Seiva de Projeção",
     emoji: "🍃",
-    text: "Heróis de Natureza ganham +8 de Ataque e +8 de HP.",
-    mod: { atkBonus: 8, maxHpBonus: 8, affin: "natureza" },
+    text: "Heróis do tipo Projeção ganham +8 de Ataque e +8 de HP.",
+    mod: { atkBonus: 8, maxHpBonus: 8, affin: "projecao" },
   },
   {
     id: "foco_de_ki",
-    name: "Foco de Ki",
+    name: "Foco de Mana",
     emoji: "🌀",
-    text: "Heróis Espirituais ganham +1 de alcance e +5 de Ataque.",
-    mod: { rangeBonus: 1, atkBonus: 5, affin: "espiritual" },
+    text: "Heróis do tipo Mana ganham +1 de alcance e +5 de Ataque.",
+    mod: { rangeBonus: 1, atkBonus: 5, affin: "mana" },
   },
 ];
 

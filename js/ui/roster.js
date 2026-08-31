@@ -28,9 +28,10 @@ export function renderRoster(mount) {
 
       <div class="roster-toolbar" id="filters">
         <button class="chip ${filter === "all" ? "is-active" : ""}" data-f="all">Todos</button>
-        <button class="chip ${filter === "fisico" ? "is-active" : ""}" data-f="fisico">🔴 Físico</button>
-        <button class="chip ${filter === "espiritual" ? "is-active" : ""}" data-f="espiritual">🔵 Espiritual</button>
-        <button class="chip ${filter === "natureza" ? "is-active" : ""}" data-f="natureza">🟢 Natureza</button>
+        <button class="chip ${filter === "fisico" ? "is-active" : ""}" data-f="fisico">⚔️ Físico</button>
+        <button class="chip ${filter === "projecao" ? "is-active" : ""}" data-f="projecao">🟢 Projeção</button>
+        <button class="chip ${filter === "mana" ? "is-active" : ""}" data-f="mana">🔵 Mana</button>
+        <button class="chip ${filter === "divino" ? "is-active" : ""}" data-f="divino">✨ Divino</button>
         <button class="chip ${filter === "5" ? "is-active" : ""}" data-f="5">5★</button>
         <button class="chip ${filter === "4" ? "is-active" : ""}" data-f="4">4★</button>
         <button class="chip ${filter === "3" ? "is-active" : ""}" data-f="3">3★</button>
@@ -64,8 +65,9 @@ export function renderRoster(mount) {
   const renderGrid = () => {
     const grid = el.querySelector("#roster-grid");
     let list = state.rosterView();
-    if (filter === "fisico" || filter === "espiritual" || filter === "natureza")
-      list = list.filter((v) => v.def.aff === filter);
+    if (filter === "fisico" || filter === "projecao" || filter === "mana")
+      list = list.filter((v) => (v.def.types || []).includes(filter));
+    else if (filter === "divino") list = list.filter((v) => (v.def.types || []).length >= 3);
     else if (filter === "3" || filter === "4" || filter === "5")
       list = list.filter((v) => v.def.star === Number(filter));
 

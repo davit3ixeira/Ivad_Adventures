@@ -79,7 +79,7 @@ function resolveOne(minStar) {
     star,
     name: HEROES[heroId].name,
     emoji: HEROES[heroId].emoji,
-    aff: HEROES[heroId].aff,
+    types: HEROES[heroId].types,
     isNew: granted.isNew,
     dupes: granted.entry.dupes,
     refund,

@@ -32,8 +32,12 @@
   --r4: #63b6ff;
   --r5: #ffce6b;
 
-  /* afinidades */
+  /* tipos: físico / projeção / mana (+ divino) */
   --aff-fisico:   #ff6b5a;
+  --aff-projecao: #6be08f;
+  --aff-mana:     #6bb8ff;
+  --aff-divino:   #ffce6b;
+  /* apelidos antigos p/ compat de CSS */
   --aff-espiritual:#6bb8ff;
   --aff-natureza: #6be08f;
 
@@ -284,8 +288,12 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing:
   border: 1px solid color-mix(in srgb, var(--aff) 45%, transparent);
 }
 .aff-fisico    { --aff: var(--aff-fisico); }
-.aff-espiritual{ --aff: var(--aff-espiritual); }
-.aff-natureza  { --aff: var(--aff-natureza); }
+.aff-projecao  { --aff: var(--aff-projecao); }
+.aff-mana      { --aff: var(--aff-mana); }
+.aff-duplo     { --aff: #c8a0ff; }
+.aff-divino    { --aff: var(--aff-divino); }
+.aff-espiritual{ --aff: var(--aff-mana); }
+.aff-natureza  { --aff: var(--aff-projecao); }
 
 .rar-3 { --rar: var(--r3); }
 .rar-4 { --rar: var(--r4); }

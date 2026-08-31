@@ -1,44 +1,20 @@
 /**
  * heroes.js — fichas dos heróis invocáveis de "As Aventuras de Ivad".
- * Flavor e técnicas seguem o livro.
  *
- * Cada herói tem:
- *   skill  — PASSIVA (sempre ativa, lida em systems/battle.js)
- *   active — ESPECIAL (carrega com o tempo; o jogador aciona; aparece na tela)
+ *   types  — 1, 2 ou 3 de: 'fisico' | 'projecao' | 'mana'
+ *            (3 tipos = DIVINO, transcende o triângulo). Ver systems/affinity.js.
+ *   skill  — PASSIVA (sempre ativa)
+ *   active — ESPECIAL (carrega +1 por turno para o último herói usado)
  *
  * ── PASSIVAS (skill.effect.type) ──────────────────────────────────────────
- *   opener      +pct ao iniciar o combate com HP cheio
- *   pierce      ignora `flat` de Defesa do alvo
- *   bulwark     reduz `pct` do dano recebido
- *   naturePunch rouba `pct` do dano causado como vida
- *   riposte     +pct de dano ao CONTRA-ATACAR
- *   safeShot    +pct se o alvo não puder revidar
- *   swift       precisa de só `threshold` de SPD para atacar 2×
- *   packHunt    +pct por aliado adjacente ao alvo
- *   healer      cura em vez de atacar (flat + 0.6×ATK)
+ *   opener  · pierce · bulwark · naturePunch · thorns · safeShot · swift · packHunt · healer
  *
  * ── ESPECIAIS (active.kind) ───────────────────────────────────────────────
- *   nuke    1 alvo, dano enorme, sem revide            (power × ATK)
- *   blast   alvo + vizinhos (cruz; alkr usa 3×3)       (power × ATK)
- *   line    linha reta a partir do herói               (power × ATK em cada)
- *   heal    cura aliados — shape 'all' | 'nearby'      (power × HP máx)
- *   shield  todo o esquadrão ganha guarda + cura leve
- *   rally   todo o esquadrão ganha +ATK por 2 turnos
- *   dash    reposiciona o herói e golpeia ao aterrissar (power × ATK)
- *   reflect próximo golpe recebido é 100% devolvido + cura
- *
- *   charge : nº de ações (atacar ou apanhar) até o especial ficar pronto
- *   banner : texto que aparece na tela ao usar
- *   fx     : efeito visual — beam | nova | blast | sparkle | shield | rally | dash | mirror
+ *   nuke · blast · aura · line · heal · shield · rally · dash · reflect
+ *   charge : turnos até ficar pronto   ·   banner : texto na tela   ·   fx : efeito
  */
 
 export const LEVEL_CAP = 40;
-
-export const AFFINITIES = {
-  fisico: { label: "Físico / Marcial", icon: "🔴", beats: "natureza" },
-  natureza: { label: "Natureza / Selvagem", icon: "🟢", beats: "espiritual" },
-  espiritual: { label: "Espiritual / Ki", icon: "🔵", beats: "fisico" },
-};
 
 export const HEROES = {
   // ═══════════════ Terra — os jovens de Takimatida ═══════════════
@@ -47,21 +23,21 @@ export const HEROES = {
     name: "Davi",
     title: "Sobrevivente da Terra",
     star: 3,
-    aff: "fisico",
-    role: "bruiser",
+    types: ["fisico"],
+    role: "healer",
     emoji: "🧑",
     quote: "Se não formos nós, quem mais?",
-    base: { hp: 40, atk: 22, def: 8, spd: 9 },
+    base: { hp: 40, atk: 18, def: 8, spd: 9 },
     mov: 3,
-    rng: 1,
-    skill: { name: "Super Soco", text: "Ao iniciar o combate com HP cheio, +15% de dano.", effect: { type: "opener", pct: 0.15 } },
+    rng: 2,
+    skill: { name: "Luz nas Mãos", text: "Em vez de atacar, cura um aliado à distância 2 em (12 + 0,6×ATK).", effect: { type: "healer", flat: 12 } },
     active: {
       name: "Mãos de Luz",
       banner: "MÃOS DE LUZ",
-      text: "A luz brota das mãos e cura TODO o esquadrão em 28% do HP máximo.",
+      text: "A luz brota das mãos e cura TODO o esquadrão em 30% do HP máximo.",
       kind: "heal",
       shape: "all",
-      power: 0.28,
+      power: 0.3,
       charge: 3,
       fx: "sparkle",
     },
@@ -72,21 +48,21 @@ export const HEROES = {
     name: "João",
     title: "O Brincalhão de Punho Firme",
     star: 3,
-    aff: "natureza",
+    types: ["fisico"],
     role: "tank",
     emoji: "🧔",
     quote: "É só apontar na direção certa que eu resolvo.",
-    base: { hp: 48, atk: 20, def: 11, spd: 6 },
+    base: { hp: 48, atk: 21, def: 11, spd: 6 },
     mov: 3,
     rng: 1,
-    skill: { name: "Carapaça", text: "Reduz em 12% todo o dano recebido.", effect: { type: "bulwark", pct: 0.12 } },
+    skill: { name: "Carapaça", text: "Reduz em 14% todo o dano recebido.", effect: { type: "bulwark", pct: 0.14 } },
     active: {
       name: "Super Chute",
       banner: "SUPER CHUTE!",
       text: "Um chute que estoura o chão: acerta o alvo e todos ao redor dele.",
       kind: "blast",
       shape: "cross",
-      power: 1.5,
+      power: 1.6,
       range: 1,
       charge: 3,
       fx: "blast",
@@ -99,7 +75,7 @@ export const HEROES = {
     name: "Ivad",
     title: "O Herdeiro do Soco Nuclear",
     star: 5,
-    aff: "fisico",
+    types: ["fisico", "mana"],
     role: "bruiser",
     emoji: "🥊",
     quote: "A Terra não vai cair enquanto eu estiver de pé.",
@@ -112,8 +88,8 @@ export const HEROES = {
       banner: "SOCO DE IVAD!",
       text: "Concentra tudo num único soco devastador. Dano imenso e atravessa a Defesa.",
       kind: "nuke",
-      power: 2.8,
-      pierce: 8,
+      power: 2.9,
+      pierce: 10,
       range: 1,
       charge: 3,
       fx: "impact",
@@ -125,7 +101,7 @@ export const HEROES = {
     name: "Oaoj",
     title: "O Punho da Carapaça Suprema",
     star: 5,
-    aff: "natureza",
+    types: ["fisico", "projecao"],
     role: "tank",
     emoji: "🐢",
     quote: "Pode bater. A Carapaça aguenta.",
@@ -136,9 +112,9 @@ export const HEROES = {
     active: {
       name: "Domo de Carapaça",
       banner: "CARAPAÇA SUPREMA",
-      text: "Ergue um domo verde sobre o esquadrão: −40% de dano no próximo turno inimigo + cura leve.",
+      text: "Ergue um domo sobre o esquadrão: −45% de dano no próximo turno inimigo.",
       kind: "shield",
-      power: 0.15,
+      power: 0,
       charge: 3,
       fx: "shield",
     },
@@ -149,7 +125,7 @@ export const HEROES = {
     name: "Takimatida",
     title: "Mestre de Duas Espadas",
     star: 5,
-    aff: "espiritual",
+    types: ["mana"],
     role: "skirmisher",
     emoji: "⚔️",
     quote: "O verdadeiro desafio não são os soldados.",
@@ -173,7 +149,7 @@ export const HEROES = {
     name: "Xing Zang",
     title: "Mestre do Dojo nas Montanhas",
     star: 5,
-    aff: "natureza",
+    types: ["projecao"],
     role: "skirmisher",
     emoji: "🥷",
     quote: "Poder sem controle é uma tempestade sem direção.",
@@ -184,11 +160,10 @@ export const HEROES = {
     active: {
       name: "Soco da Natureza",
       banner: "SOCO DA NATUREZA!",
-      text: "\"As estrelas contam o céu...\" Cura o herói e os aliados vizinhos em 35% e fere os inimigos ao redor.",
-      kind: "heal",
-      shape: "nearby",
-      power: 0.35,
-      splash: 0.9,
+      text: "\"As estrelas contam o céu...\" Uma onda de energia parte do herói e atinge todos os inimigos por perto.",
+      kind: "aura",
+      power: 1.8,
+      radius: 2,
       charge: 3,
       fx: "nova",
     },
@@ -199,7 +174,7 @@ export const HEROES = {
     name: "Poderoso",
     title: "O Exilado do Planeta Poder",
     star: 5,
-    aff: "fisico",
+    types: ["fisico", "projecao"],
     role: "tank",
     emoji: "🗿",
     quote: "Pode bater. Eu espero.",
@@ -225,7 +200,7 @@ export const HEROES = {
     name: "KetchouEtchou",
     title: "Portador do Feixe de Luz",
     star: 4,
-    aff: "espiritual",
+    types: ["mana"],
     role: "ranged",
     emoji: "✨",
     quote: "Pelo poder de Ketchou, pelo poder de Etchou...",
@@ -250,7 +225,7 @@ export const HEROES = {
     name: "Haluhaluho",
     title: "O Irmão do Vento",
     star: 4,
-    aff: "espiritual",
+    types: ["projecao", "mana"],
     role: "skirmisher",
     emoji: "🌪️",
     quote: "Confie nos instintos. O vento aponta o caminho.",
@@ -275,7 +250,7 @@ export const HEROES = {
     name: "Joe Pistoleiro",
     title: "A Pistola Lendária de Mácula",
     star: 4,
-    aff: "fisico",
+    types: ["fisico", "mana"],
     role: "ranged",
     emoji: "🤠",
     quote: "Se vamos lutar, vamos lutar para vencer.",
@@ -301,14 +276,14 @@ export const HEROES = {
     name: "Kão-Woji",
     title: "O Rei do Deserto",
     star: 4,
-    aff: "fisico",
+    types: ["fisico"],
     role: "bruiser",
     emoji: "🐺",
     quote: "Você fala demais. Prove que vale o esforço.",
-    base: { hp: 46, atk: 22, def: 10, spd: 8 },
+    base: { hp: 48, atk: 22, def: 11, spd: 8 },
     mov: 3,
     rng: 1,
-    skill: { name: "Reflexo do Deserto", text: "Ao revidar, devolve o golpe com o dobro da força (+60%).", effect: { type: "riposte", pct: 0.6 } },
+    skill: { name: "Pele de Espinhos", text: "Quem o ataca corpo a corpo leva de volta 35% do dano causado.", effect: { type: "thorns", pct: 0.35 } },
     active: {
       name: "Reflexo Total",
       banner: "REFLEXO TOTAL",
@@ -325,7 +300,7 @@ export const HEROES = {
     name: "Al-Kor",
     title: "Guardião da Dimensão Alfa",
     star: 4,
-    aff: "espiritual",
+    types: ["projecao", "mana"],
     role: "ranged",
     emoji: "🔷",
     quote: "O Escolhido é apenas uma fração do verdadeiro perigo.",
@@ -352,7 +327,7 @@ export const HEROES = {
     name: "Joe Fino",
     title: "Estrategista da Linhagem Joe",
     star: 3,
-    aff: "natureza",
+    types: ["projecao"],
     role: "skirmisher",
     emoji: "🎩",
     quote: "Se agirmos como peças soltas, ele nos esmaga um por um.",
@@ -378,7 +353,7 @@ export const HEROES = {
     name: "Bob",
     title: "Aprendiz de Centris",
     star: 3,
-    aff: "espiritual",
+    types: ["mana"],
     role: "ranged",
     emoji: "🔮",
     quote: "Acho que fiz certo dessa vez.",
@@ -404,22 +379,23 @@ export const HEROES = {
     name: "Calico",
     title: "Criança de Linhagem Divina",
     star: 3,
-    aff: "natureza",
+    types: ["fisico", "projecao", "mana"], // DIVINO
     role: "healer",
     emoji: "🐈",
     quote: "Fica quieto que isso aqui arde um pouco.",
-    base: { hp: 38, atk: 16, def: 8, spd: 9 },
+    base: { hp: 40, atk: 16, def: 8, spd: 9 },
     mov: 3,
     rng: 2,
     skill: { name: "Bálsamo Felino", text: "Em vez de atacar, cura um aliado à distância 2 em (14 + 0,6×ATK).", effect: { type: "healer", flat: 14 } },
     active: {
       name: "Bênção Divina",
       banner: "BÊNÇÃO DIVINA",
-      text: "A linhagem divina se manifesta: cura TODO o esquadrão em 40% do HP máximo.",
+      text: "A linhagem divina se manifesta: cura TODO o esquadrão em 40% do HP máximo e reergue os caídos com 30%.",
       kind: "heal",
       shape: "all",
       power: 0.4,
-      charge: 3,
+      revive: 0.3,
+      charge: 4,
       fx: "sparkle",
     },
   },

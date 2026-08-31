@@ -64,7 +64,9 @@ Só a **Live Server** é obrigatória. As outras são conforto de desenvolviment
 3. **Nova Jornada** — escolha um capítulo e entre no **mapa de nós ramificados**:
    - ⚔️ Batalha · ☠️ Elite · 🔱 Chefe · ❓ Evento · 🛒 Loja · ⛺ Descanso
 4. **Batalha tática** — grade 8×6, terrenos (magma, floresta, rocha, ruínas),
-   **triângulo de afinidades** 🔴→🟢→🔵→🔴 (±30%), ataque duplo com +5 de SPD.
+   **tipos** ⚔️ Físico › 🟢 Projeção › 🔵 Mana › ⚔️ (±30%). Herói pode ter 2 tipos
+   (mais neutro) ou 3 = **Divino** (ignora o triângulo). Ataque duplo com +5 SPD.
+   No turno inimigo o herói **não revida** — só apanha (menos Kão-Woji).
    - Toque no herói → **azul** = mover (dentro do alcance de MOV) · **⚔** = alvos.
    - Toque num alvo ⚔ → o herói vai até a melhor casa e mostra a **previsão**;
      toque de novo (ou "ATACAR") para confirmar. Sem clicar no herói de novo.
@@ -116,7 +118,7 @@ Ivad_Adventures/
     │   ├── run.js          #   controlador da run: mapa, moedas, relíquias, eventos
     │   ├── mapgen.js       #   geração do mapa de nós ramificados
     │   ├── pathfind.js     #   Dijkstra/BFS no grid, alcances
-    │   ├── affinity.js     #   triângulo de energias
+    │   ├── affinity.js     #   tipos (físico/projeção/mana), duplo e divino
     │   ├── battle.js       #   modelo de combate tático (turnos, dano, follow-up)
     │   └── ai.js           #   decisão dos inimigos (rusher/kiter/guard/boss)
     └── ui/                 # camada de tela (só aqui se toca no DOM)

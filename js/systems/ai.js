@@ -11,12 +11,12 @@ const BOSS_BASE = { boss_taki: "kiter", boss_korlok: "rusher", boss_king: "rushe
 const md = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 
 function quickDamage(src, tgt) {
-  const mult = affinityMultiplier(src.aff, tgt.aff, tgt.traits?.ignoreWheel);
+  const mult = affinityMultiplier(src.types, tgt.types, tgt.traits?.ignoreWheel || src.traits?.ignoreWheel);
   return Math.max(1, Math.round(src.stats.atk * mult) - tgt.stats.def);
 }
 
-function affinityBias(a, b) {
-  const m = affinityMultiplier(a, b);
+function affinityBias(aTypes, bTypes) {
+  const m = affinityMultiplier(aTypes, bTypes);
   return m > 1 ? 1 : m < 1 ? -1 : 0;
 }
 
@@ -54,7 +54,7 @@ function attackScore(e, foe, dist, behavior, battle) {
   let s = dmg * 2;
   if (dmg >= foe.curHP) s += 1000; // abate provável
   s += (1 - foe.curHP / foe.maxHP) * 120; // foca feridos
-  s += affinityBias(e.aff, foe.aff) * 25;
+  s += affinityBias(e.types, foe.types) * 25;
 
   const foeCanCounter = dist <= foe.stats.rng;
   if (behavior === "kiter") {

@@ -117,7 +117,21 @@
 }
 .unit.side-ally  { --side: var(--ki); }
 .unit.side-enemy { --side: var(--rubro); }
-.unit.side-boss  { --side: var(--gold); box-shadow: 0 0 14px -2px var(--gold); }
+.unit.side-boss  {
+  --side: var(--gold);
+  width: 108%;
+  height: 108%;
+  font-size: 2.2rem;
+  border-width: 3px;
+  z-index: 3;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255,255,255,0.16), transparent 60%),
+    radial-gradient(circle, rgba(255,90,90,0.25), transparent 70%),
+    var(--bg-void);
+  box-shadow: 0 0 18px 2px var(--rubro), 0 0 32px 6px rgba(255,206,107,0.35);
+  animation: boss-aura 2.4s ease-in-out infinite;
+}
+@keyframes boss-aura { 50% { box-shadow: 0 0 26px 4px var(--rubro), 0 0 44px 10px rgba(255,206,107,0.5); } }
 .unit.is-active  { transform: scale(1.06); box-shadow: 0 0 0 3px var(--gold); }
 .unit.is-done    { filter: grayscale(0.8) brightness(0.7); }
 .unit.is-hit     { animation: hit 0.32s; }
@@ -141,9 +155,14 @@
   border: 2px solid var(--bg-void);
   font-size: 0;
 }
-.unit__aff.aff-fisico    { background: var(--aff-fisico); }
-.unit__aff.aff-espiritual { background: var(--aff-espiritual); }
-.unit__aff.aff-natureza  { background: var(--aff-natureza); }
+.unit__aff.aff-fisico  { background: var(--aff-fisico); }
+.unit__aff.aff-projecao { background: var(--aff-projecao); }
+.unit__aff.aff-mana    { background: var(--aff-mana); }
+.unit__aff.aff-duplo   { background: linear-gradient(135deg, var(--aff-fisico) 0 50%, var(--aff-mana) 50% 100%); }
+.unit__aff.aff-divino  {
+  background: conic-gradient(var(--aff-fisico), var(--aff-projecao), var(--aff-mana), var(--aff-fisico));
+  box-shadow: 0 0 6px var(--aff-divino);
+}
 
 /* carga do especial */
 .unit__charge {

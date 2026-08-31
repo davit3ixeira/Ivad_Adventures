@@ -14,7 +14,7 @@
 export const EVENTS = [
   {
     id: "prece_semente",
-    scene: "🌱",
+    scene: "💠",
     title: "Preces na Semente Primordial",
     text:
       "Uma Semente Primordial pulsa no altar de pedra, meio enterrada. Oaoj sugere seguir em frente. Takimatida ajoelha-se e fecha os olhos.",
@@ -29,10 +29,10 @@ export const EVENTS = [
       },
       {
         label: "Arrancar a Semente e seguir",
-        detail: "Ganha Sementes Primordiais, mas irrita os espíritos.",
+        detail: "Ganha Fragmentos Universais, mas irrita os espíritos.",
         outcome: {
           text: "Você a arranca do chão. Vale muito — mas os sussurros ao redor não perdoam.",
-          effects: [{ t: "sementes", n: 8 }, { t: "damagePct", n: 0.15 }],
+          effects: [{ t: "frag", n: 8 }, { t: "damagePct", n: 0.15 }],
         },
       },
       {
@@ -40,7 +40,7 @@ export const EVENTS = [
         detail: "Nada acontece. Ou quase.",
         outcome: {
           text: "Vocês seguem. Nas costas, a Semente brilha uma última vez, como um aceno.",
-          effects: [{ t: "sementes", n: 2 }],
+          effects: [{ t: "frag", n: 2 }],
         },
       },
     ],
@@ -48,7 +48,7 @@ export const EVENTS = [
 
   {
     id: "acordo_haluhaluhu",
-    scene: "🔥",
+    scene: "💎",
     title: "O Acordo de Haluhaluhu",
     text:
       "Uma voz sobe do chão rachado, doce como mel fervido: — \"Poder. Agora. Basta um pouco do que te mantém inteiro.\"",
@@ -66,7 +66,7 @@ export const EVENTS = [
         detail: "O Rei Demônio não gosta de ser recusado.",
         outcome: {
           text: "O chão se fecha com um rosnado. Ivad sorri: — \"Achei que ele fosse mais persuasivo.\"",
-          effects: [{ t: "damagePct", n: 0.1 }, { t: "sementes", n: 6 }],
+          effects: [{ t: "damagePct", n: 0.1 }, { t: "frag", n: 6 }],
         },
       },
     ],
@@ -77,23 +77,23 @@ export const EVENTS = [
     scene: "🧳",
     title: "O Mercador Errante",
     text:
-      "Um velho sob os sóis gêmeos de Centris estende um pano cheio de bugigangas. — \"Fragmentos de Magma? Eu troco. Sempre troco.\"",
+      "Um velho sob os sóis gêmeos de Centris estende um pano cheio de bugigangas. — \"Gemas? Eu troco. Sempre troco.\"",
     choices: [
       {
-        label: "Trocar Fragmentos por uma relíquia",
-        detail: "Custa 25 🔥. Se não tiver, ele ri de você.",
-        cost: { fragmentos: 25 },
+        label: "Trocar Gemas por uma relíquia",
+        detail: "Custa 25 💎. Se não tiver, ele ri de você.",
+        cost: { gemas: 25 },
         outcome: {
           text: "Ele embrulha a peça com cuidado de quem já a perdeu antes.",
           effects: [{ t: "relic" }],
         },
       },
       {
-        label: "Vender uma lembrança (ganha 🔥)",
-        detail: "+18 Fragmentos de Magma.",
+        label: "Vender uma lembrança (ganha 💎)",
+        detail: "+18 Gemas.",
         outcome: {
           text: "— \"Isso vale mais pra mim do que pra você\", ele diz. Provavelmente mente.",
-          effects: [{ t: "fragmentos", n: 18 }],
+          effects: [{ t: "gemas", n: 18 }],
         },
       },
       {
@@ -150,10 +150,10 @@ export const EVENTS = [
       },
       {
         label: "Desarmar com paciência",
-        detail: "Ganha Fragmentos de Magma, sem risco.",
+        detail: "Ganha Gemas, sem risco.",
         outcome: {
           text: "Kão-Woji fareja cada fio. Vinte minutos depois: cofre limpo.",
-          effects: [{ t: "fragmentos", n: 22 }],
+          effects: [{ t: "gemas", n: 22 }],
         },
       },
       {
@@ -161,7 +161,7 @@ export const EVENTS = [
         detail: "Segue reto. Covardia é uma tática.",
         outcome: {
           text: "O cofre explode sozinho três segundos depois. Boa decisão.",
-          effects: [{ t: "sementes", n: 4 }],
+          effects: [{ t: "frag", n: 4 }],
         },
       },
     ],
@@ -172,15 +172,15 @@ export const EVENTS = [
     scene: "🥋",
     title: "Desafio de Treino",
     text:
-      "Um discípulo do dojo bate o pé: — \"Um duelo. Se eu ganhar, fico com seus Fragmentos. Se você ganhar...\"",
+      "Um discípulo do dojo bate o pé: — \"Um duelo. Se eu ganhar, fico com suas Gemas. Se você ganhar...\"",
     choices: [
       {
         label: "Aceitar o duelo",
-        detail: "Aposta 15 🔥 por uma carta de Mácula + o dobro de volta.",
-        cost: { fragmentos: 15 },
+        detail: "Aposta 15 💎 numa carta de Mácula + o dobro de volta.",
+        cost: { gemas: 15 },
         outcome: {
           text: "Três trocas de golpes. Ele cai rindo. — \"Beleza, vocês servem.\"",
-          effects: [{ t: "fragmentos", n: 30 }, { t: "upgrade" }],
+          effects: [{ t: "gemas", n: 30 }, { t: "upgrade" }],
         },
       },
       {
@@ -210,11 +210,11 @@ export const EVENTS = [
         },
       },
       {
-        label: "Selar a fenda com Fragmentos",
-        detail: "−20 🔥, +HP máx permanente.",
-        cost: { fragmentos: 20 },
+        label: "Selar a fenda com Gemas",
+        detail: "−20 💎, +HP máx permanente.",
+        cost: { gemas: 20 },
         outcome: {
-          text: "O ki condensado nos Fragmentos fecha a costura no ar. O grupo respira melhor.",
+          text: "O ki condensado nas Gemas fecha a costura no ar. O grupo respira melhor.",
           effects: [{ t: "maxHp", n: 14 }],
         },
       },
@@ -223,7 +223,7 @@ export const EVENTS = [
         detail: "Caminho mais longo, sem susto.",
         outcome: {
           text: "Vocês dão a volta. A fenda implode sozinha. Bob parece decepcionado.",
-          effects: [{ t: "fragmentos", n: 6 }],
+          effects: [{ t: "gemas", n: 6 }],
         },
       },
     ],

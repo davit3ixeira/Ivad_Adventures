@@ -23,7 +23,7 @@ export function renderMenu(mount) {
         <div class="menu__tag">Selo Primordial</div>
         <p class="menu__desc">
           O céu rubro de Haluho racha sobre os mundos. Invoque os heróis da saga com
-          Sementes Primordiais, forme seu esquadrão e enfrente os Irmãos Demônios,
+          Fragmentos Universais, forme seu esquadrão e enfrente os Irmãos Demônios,
           Korlok e o próprio Rei Demônio numa campanha tática roguelike.
         </p>
         <div class="menu__actions">
@@ -33,7 +33,7 @@ export function renderMenu(mount) {
                  <button class="btn btn--ghost" data-act="abandon">Abandonar jornada atual</button>`
               : `<button class="btn btn--primary btn--lg" data-act="new">⚔️ Nova Jornada</button>`
           }
-          <button class="btn" data-nav="gacha">🌱 Portal de Invocação</button>
+          <button class="btn" data-nav="gacha">💠 Portal de Invocação</button>
           <button class="btn" data-nav="roster">🗡️ Coleção &amp; Esquadrão</button>
           <button class="btn btn--ghost btn--sm" data-act="reset">Reiniciar tudo</button>
         </div>
@@ -47,7 +47,7 @@ export function renderMenu(mount) {
           <div class="menu__stat-row"><span>Invocações feitas</span> <b>${m.pulls}</b></div>
           <div class="menu__stat-row"><span>Jornadas vencidas</span> <b>${m.runsWon}</b></div>
           <div class="menu__stat-row"><span>Capítulo liberado</span> <b>${m.unlockedChapter}</b></div>
-          <div class="menu__stat-row"><span>Sementes Primordiais</span> <b>${m.sementes} 🌱</b></div>
+          <div class="menu__stat-row"><span>Fragmentos Universais</span> <b>${m.frag} 💠</b></div>
         </div>
       </aside>
     </section>
@@ -93,7 +93,7 @@ export function openChapterSelect() {
 function confirmAbandon() {
   const { box, close } = modal(`
     <h2>Abandonar a jornada?</h2>
-    <p class="muted" style="margin:10px 0 18px">A run atual será perdida. Sementes e heróis já obtidos permanecem.</p>
+    <p class="muted" style="margin:10px 0 18px">A run atual será perdida. Fragmentos e heróis já obtidos permanecem.</p>
     <div class="row">
       <button class="btn btn--primary" data-yes>Abandonar</button>
       <button class="btn btn--ghost" data-no>Voltar</button>
@@ -110,7 +110,7 @@ function confirmAbandon() {
 function confirmReset() {
   const { box, close } = modal(`
     <h2>Reiniciar tudo?</h2>
-    <p class="muted" style="margin:10px 0 18px">Apaga todo o progresso: heróis, Sementes, capítulos e a run atual. Não dá pra desfazer.</p>
+    <p class="muted" style="margin:10px 0 18px">Apaga todo o progresso: heróis, Fragmentos, capítulos e a run atual. Não dá pra desfazer.</p>
     <div class="row">
       <button class="btn btn--primary" data-yes>Apagar progresso</button>
       <button class="btn btn--ghost" data-no>Cancelar</button>

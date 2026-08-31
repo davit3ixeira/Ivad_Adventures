@@ -10,6 +10,7 @@ import { HEROES, heroStats } from "../data/heroes.js";
 import { getChapter } from "../data/chapters.js";
 import { RELICS, RELICS_BY_ID } from "../data/relics.js";
 import { UPGRADES, UPGRADES_BY_ID } from "../data/upgrades.js";
+import { rollEquipDrop, equipBonus } from "../data/equipment.js";
 
 const clampHP = (u) => (u.curHP = Math.max(0, Math.min(u.base.maxHP, Math.round(u.curHP))));
 
@@ -23,6 +24,11 @@ export function startRun(chapterId) {
 
   const squad = roster.map((e) => {
     const s = heroStats(e);
+    const eb = equipBonus(e, state.meta.inventory); // bônus de equipamento
+    s.maxHP += eb.maxHP;
+    s.atk = Math.max(1, s.atk + eb.atk);
+    s.def = Math.max(0, s.def + eb.def);
+    s.spd = Math.max(1, s.spd + eb.spd);
     const def = HEROES[e.id];
     return {
       uid: e.uid,
@@ -34,6 +40,7 @@ export function startRun(chapterId) {
       lvl: e.level,
       base: { maxHP: s.maxHP, atk: s.atk, def: s.def, spd: s.spd, mov: s.mov, rng: s.rng },
       curHP: s.maxHP,
+      charge: 0, // carga do Especial — acumula por abate e persiste entre batalhas da run
     };
   });
 
@@ -43,7 +50,8 @@ export function startRun(chapterId) {
     map,
     currentId: map.startId,
     squad,
-    fragmentos: 0,
+    gemas: 0,
+    equipDrops: [], // equipamentos a distribuir no fim da run
     relics: [],
     upgrades: [],
     battlesWon: 0,
@@ -141,8 +149,8 @@ function pickRelicForRun() {
   return (pool.length ? rng.pick(pool) : rng.pick(RELICS)).id;
 }
 
-export function addFragmentos(n) {
-  state.run.fragmentos = Math.max(0, state.run.fragmentos + n);
+export function addGemas(n) {
+  state.run.gemas = Math.max(0, state.run.gemas + n);
   state.persist();
   bus.emit("run:changed");
 }
@@ -200,13 +208,13 @@ export function applyEventEffects(effects = []) {
 
   for (const e of effects) {
     switch (e.t) {
-      case "sementes":
-        state.addSementes(e.n);
-        lines.push(`${e.n >= 0 ? "+" : ""}${e.n} 🌱 Sementes Primordiais`);
+      case "frag":
+        state.addFrag(e.n);
+        lines.push(`${e.n >= 0 ? "+" : ""}${e.n} 💠 Fragmentos Universais`);
         break;
-      case "fragmentos":
-        addFragmentos(e.n);
-        lines.push(`${e.n >= 0 ? "+" : ""}${e.n} 🔥 Fragmentos de Magma`);
+      case "gemas":
+        addGemas(e.n);
+        lines.push(`${e.n >= 0 ? "+" : ""}${e.n} 💎 Gemas`);
         break;
       case "healPct":
         healSquad(e.n);
@@ -244,8 +252,8 @@ export function applyEventEffects(effects = []) {
           lines.push(`Sorte! ${r.emoji} ${r.name} + cura`);
         } else {
           damageSquad(0.3);
-          addFragmentos(-10);
-          lines.push("Azar... dano pesado e Fragmentos perdidos");
+          addGemas(-10);
+          lines.push("Azar... dano pesado e Gemas perdidas");
         }
         break;
       }
@@ -264,16 +272,16 @@ export function recordBattleWin(node) {
   const isElite = node.type === "elite";
   const isBoss = node.type === "boss";
 
-  const baseSem = isBoss ? chapter.reward.sementes : isElite ? 6 : 3;
-  const frag = isBoss ? 40 : isElite ? 22 : rng.int(8, 14);
+  const fragDrop = isBoss ? chapter.reward.frag : isElite ? 6 : 3;
+  const gemaDrop = isBoss ? 40 : isElite ? 22 : rng.int(8, 14);
 
-  state.addSementes(baseSem);
-  addFragmentos(frag);
+  state.addFrag(fragDrop);
+  addGemas(gemaDrop);
 
-  // Semente Rachada e afins
+  // relíquias com "bounty" (ex.: Semente Rachada)
   relicTriggers()
     .filter((t) => t.trigger === "bountyOnWin")
-    .forEach((t) => state.addSementes(t.value));
+    .forEach((t) => state.addFrag(t.value));
 
   // XP no roster (permanente)
   const xp = isBoss ? 320 : isElite ? 150 : 90;
@@ -284,9 +292,12 @@ export function recordBattleWin(node) {
 
   clearNode(node.id);
 
-  const rewards = { sementes: baseSem, fragmentos: frag, relic: null };
-  if (isBoss || isElite || rng.chance(0.18)) {
-    rewards.relic = addRelic();
+  const rewards = { frag: fragDrop, gemas: gemaDrop, relic: null, equip: null };
+  if (isBoss || isElite || rng.chance(0.18)) rewards.relic = addRelic();
+  // drop de equipamento: chefe garante, elite 50%, batalha 12%
+  if (isBoss || (isElite && rng.chance(0.5)) || rng.chance(0.12)) {
+    rewards.equip = rollEquipDrop(isBoss ? "boss" : isElite ? "elite" : "battle", chapter.id);
+    if (rewards.equip) run.equipDrops.push(rewards.equip);
   }
 
   if (isBoss) {
@@ -298,26 +309,51 @@ export function recordBattleWin(node) {
   return { rewards, isBoss, chapter };
 }
 
+/** Move os equipamentos dropados na run para o inventário permanente. */
+function collectEquipDrops() {
+  const drops = state.run?.equipDrops || [];
+  if (drops.length) {
+    state.meta.inventory.push(...drops);
+    state.persist();
+  }
+  return drops.length;
+}
+
 export function endRunVictory() {
   const chapter = getChapter(state.run.chapter);
+  const loot = collectEquipDrops();
   state.clearRun();
-  bus.emit("run:ended", { victory: true, chapter });
+  bus.emit("run:ended", { victory: true, chapter, loot });
 }
 
 export function endRunDefeat() {
+  const loot = collectEquipDrops();
   state.clearRun();
-  bus.emit("run:ended", { victory: false });
+  bus.emit("run:ended", { victory: false, loot });
 }
 
-/** Sincroniza o HP pós-batalha de volta na run. */
-export function syncSquadHP(battleUnits) {
+/** Sincroniza HP e carga do Especial pós-batalha de volta na run. */
+export function syncSquadHP(battleUnits, fusion) {
   const byUid = new Map(battleUnits.map((u) => [u.uid, u]));
   state.run.squad.forEach((u) => {
     const bu = byUid.get(u.uid);
     if (bu) {
       u.curHP = bu.alive ? Math.max(1, Math.round(bu.curHP)) : 0;
+      u.charge = bu.charge || 0; // a barrinha do Especial segue para a próxima batalha
     }
   });
+
+  // desfaz a Fusão: reparte o HP do Ivão de volta em Ivad e Oaoj
+  if (fusion) {
+    const ivao = battleUnits.find((u) => u.key === "FUSAO");
+    const frac = ivao ? Math.max(0, ivao.curHP) / (fusion.maxHP || 1) : 0;
+    state.run.squad.forEach((u) => {
+      if (u.uid === fusion.ivadUid || u.uid === fusion.oaojUid) {
+        u.curHP = Math.max(1, Math.round(frac * u.base.maxHP));
+        u.charge = 0;
+      }
+    });
+  }
   state.persist();
 }
 
@@ -329,7 +365,7 @@ export function rollShop() {
   state.run.shopStock = [
     { key: "heal", emoji: "🧪", name: "Elixir de Mácula", desc: "Cura 60% do HP do esquadrão", price: 18, sold: false },
     { key: "revive", emoji: "💞", name: "Incenso do Dojo", desc: "Reergue e cura todos por completo", price: 40, sold: false },
-    { key: "maxhp", emoji: "🌱", name: "Broto Primordial", desc: "+10 de HP máximo permanente", price: 30, sold: false },
+    { key: "maxhp", emoji: "💠", name: "Broto Primordial", desc: "+10 de HP máximo permanente", price: 30, sold: false },
     { key: "relic", emoji: relic.emoji, name: relic.name, desc: relic.text, price: 46, sold: false, relicId: relic.id },
     { key: "upgrade", emoji: upg.emoji, name: upg.name, desc: upg.text, price: 34, sold: false, upgradeId: upg.id },
   ];
@@ -339,8 +375,8 @@ export function rollShop() {
 
 export function buyShopItem(index) {
   const item = state.run.shopStock?.[index];
-  if (!item || item.sold || state.run.fragmentos < item.price) return { error: true };
-  addFragmentos(-item.price);
+  if (!item || item.sold || state.run.gemas < item.price) return { error: true };
+  addGemas(-item.price);
   item.sold = true;
 
   switch (item.key) {

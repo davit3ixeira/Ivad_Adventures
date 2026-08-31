@@ -43,10 +43,10 @@ export function renderEvent(mount, { nodeId }) {
 
 function resolveChoice(choice, nodeId, el) {
   if (choice.cost) {
-    if (choice.cost.fragmentos && state.run.fragmentos < choice.cost.fragmentos) {
-      return toast(`Faltam Fragmentos de Magma (${choice.cost.fragmentos} 🔥).`, "bad");
+    if (choice.cost.gemas && state.run.gemas < choice.cost.gemas) {
+      return toast(`Faltam Gemas (${choice.cost.gemas} 💎).`, "bad");
     }
-    if (choice.cost.fragmentos) applyEventEffects([{ t: "fragmentos", n: -choice.cost.fragmentos }]);
+    if (choice.cost.gemas) applyEventEffects([{ t: "gemas", n: -choice.cost.gemas }]);
   }
 
   const { needsUpgrade, lines } = applyEventEffects(choice.outcome.effects);
@@ -77,7 +77,7 @@ export function renderShop(mount, { nodeId }) {
       <div class="narrative__scene">🛒</div>
       <div class="eyebrow" style="text-align:center">Loja de Mácula</div>
       <h1 style="text-align:center; margin:4px 0 6px">O Mercador Errante</h1>
-      <p style="text-align:center" class="muted">Você tem <b>${state.run.fragmentos} 🔥</b> Fragmentos de Magma.</p>
+      <p style="text-align:center" class="muted">Você tem <b>${state.run.gemas} 💎</b> Gemas.</p>
       <div class="stack" id="stock" style="margin-top:18px"></div>
       <div class="row" style="justify-content:center; margin-top:20px">
         <button class="btn btn--primary" data-leave>Seguir viagem</button>
@@ -101,8 +101,8 @@ export function renderShop(mount, { nodeId }) {
           ${
             it.sold
               ? `<span class="muted">esgotado</span>`
-              : `<button class="btn btn--sm" data-buy="${i}" ${state.run.fragmentos < it.price ? "disabled" : ""}>
-                  <span class="price">${it.price} 🔥</span>
+              : `<button class="btn btn--sm" data-buy="${i}" ${state.run.gemas < it.price ? "disabled" : ""}>
+                  <span class="price">${it.price} 💎</span>
                  </button>`
           }
         </div>`
@@ -111,9 +111,9 @@ export function renderShop(mount, { nodeId }) {
     wrap.querySelectorAll("[data-buy]").forEach((b) =>
       b.addEventListener("click", () => {
         const r = buyShopItem(Number(b.dataset.buy));
-        if (r.error) return toast("Fragmentos insuficientes.", "bad");
+        if (r.error) return toast("Gemas insuficientes.", "bad");
         toast(`Comprado: ${r.item.name}`, "good");
-        el.querySelector("p.muted").innerHTML = `Você tem <b>${state.run.fragmentos} 🔥</b> Fragmentos de Magma.`;
+        el.querySelector("p.muted").innerHTML = `Você tem <b>${state.run.gemas} 💎</b> Gemas.`;
         paint();
       })
     );

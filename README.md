@@ -58,9 +58,11 @@ Só a **Live Server** é obrigatória. As outras são conforto de desenvolviment
 
 ## 🎮 Como se joga
 
-1. **Portal de Invocação** — gaste 🌱 *Sementes Primordiais* para invocar heróis
+1. **Portal de Invocação** — gaste 💠 *Fragmentos Universais* para invocar heróis
    (3★/4★/5★, com *pity*). Lote de 5 garante um 4★.
-2. **Coleção & Esquadrão** — escale até **4 heróis**.
+2. **Coleção & Esquadrão** — escale até **4 heróis**. Toque num herói para
+   equipar itens do 🎒 **Arsenal** (arma / armadura / relíquia, ranks
+   Comum→Lendário). Equipamentos caem nas batalhas e vão pro Arsenal no fim da run.
 3. **Nova Jornada** — escolha um capítulo e entre no **mapa de nós ramificados**:
    - ⚔️ Batalha · ☠️ Elite · 🔱 Chefe · ❓ Evento · 🛒 Loja · ⛺ Descanso
 4. **Batalha tática** — grade 8×6, terrenos (magma, floresta, rocha, ruínas),
@@ -71,14 +73,17 @@ Só a **Live Server** é obrigatória. As outras são conforto de desenvolviment
    - Toque num alvo ⚔ → o herói vai até a melhor casa e mostra a **previsão**;
      toque de novo (ou "ATACAR") para confirmar. Sem clicar no herói de novo.
    - Toque numa casa azul = só mover (uma vez; dá pra *Voltar*).
-   - **Especial ✨** — golpe único por herói (Soco de Ivad, KetchouEtchou!,
-     Mãos de Luz, Carapaça Suprema…). Ganha **+1 carga por turno** para o último
-     herói que você usou; pronto → botão dourado → mira → **banner + efeito**.
-5. A cada vitória, escolha **1 de 3 Cartas de Mácula** (buffs da run).
+   - **Especial ✨** — golpe único por herói. A barrinha enche **+1 por inimigo
+     que aquele herói abate** (+ um pouquinho pro último a agir no turno) e
+     **persiste entre as batalhas da run**. Cheia → botão dourado → banner + efeito.
+   - **Fusão (beta)** — se **Ivad e Oaoj** estiverem com a barrinha cheia,
+     aparece **⚡ FUSÃO**: viram o **Ivão**, do tamanho de um chefe, até o fim da luta.
+5. A cada vitória: 💠 Fragmentos, 💎 Gemas (moeda da run), talvez uma relíquia
+   ou equipamento, e a escolha de **1 de 3 Cartas de Mácula**.
    HP **não** regenera entre batalhas — só em ⛺.
 6. Derrote o chefe do capítulo para liberar o próximo.
 
-**Atalho de dev:** abra com `?rico` na URL para ganhar 500 🌱.
+**Atalho de dev:** abra com `?rico` na URL para ganhar 500 💠.
 
 ---
 
@@ -110,7 +115,8 @@ Ivad_Adventures/
     │   ├── enemies.js      #   tropa, Irmãos Demônios, chefes + escala
     │   ├── chapters.js     #   os 4 capítulos da campanha
     │   ├── upgrades.js     #   Cartas de Mácula (buffs temporários da run)
-    │   ├── relics.js       #   Relíquias de Mácula (efeitos permanentes na run)
+    │   ├── relics.js       #   Relíquias de Mácula (buffs temporários da run)
+    │   ├── equipment.js    #   equipamentos permanentes (Arsenal) + drops por rank
     │   ├── narrative.js    #   eventos aleatórios com escolhas
     │   └── manifest.js     #   ponte ID → arquivo de arte/áudio (+ fallback emoji)
     ├── systems/            # regras de jogo (sem DOM)
@@ -160,7 +166,8 @@ existe. **Nenhuma outra mudança é necessária.**
 | O quê | Onde |
 |---|---|
 | Taxas do gacha / pity / custos | `js/systems/gacha.js` (const `GACHA`) |
-| Sementes iniciais | `js/core/state.js` (`STARTING_SEMENTES`) |
+| Fragmentos iniciais | `js/core/state.js` (`START_FRAG`) |
+| Equipamentos e drops | `js/data/equipment.js` (`EQUIPMENT`, `rollEquipDrop`) |
 | Atributos e habilidades dos heróis | `js/data/heroes.js` |
 | Escala de dificuldade dos inimigos | `js/data/enemies.js` (`enemyStats`) |
 | Tamanho do grid / dano de magma | `js/systems/battle.js` (topo do arquivo) |

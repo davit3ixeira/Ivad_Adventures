@@ -1,11 +1,11 @@
 /**
  * gacha.js — Invocação estilo Fire Emblem Heroes.
  *
- * • Puxada individual (5 🌱) ou em lote de 5 (20 🌱).
+ * • Puxada individual (5 💠) ou em lote de 5 (20 💠).
  * • 5★ base 4%, 4★ 22%, resto 3★.
  * • Soft pity: após 50 invocações sem 5★, +2% por invocação. Hard pity em 70.
  * • O lote de 5 garante ao menos um 4★.
- * • Duplicatas devolvem algumas Sementes e viram progresso de nível.
+ * • Duplicatas devolvem alguns Fragmentos e viram progresso de nível.
  */
 import { state } from "../core/state.js";
 import { rng } from "../core/rng.js";
@@ -49,7 +49,7 @@ export function ratesLabel() {
 }
 
 export function canAfford(kind) {
-  return state.meta.sementes >= (kind === "multi" ? GACHA.costMulti : GACHA.costSingle);
+  return state.meta.frag >= (kind === "multi" ? GACHA.costMulti : GACHA.costSingle);
 }
 
 function rollStar(minStar) {
@@ -93,7 +93,7 @@ function resolveOne(minStar) {
  */
 export function summon(kind) {
   const cost = kind === "multi" ? GACHA.costMulti : GACHA.costSingle;
-  if (!state.spendSementes(cost)) return { error: "insuficiente" };
+  if (!state.spendFrag(cost)) return { error: "insuficiente" };
 
   const n = kind === "multi" ? GACHA.multiCount : 1;
   const results = [];
@@ -103,7 +103,7 @@ export function summon(kind) {
   }
 
   const refund = results.reduce((s, r) => s + r.refund, 0);
-  if (refund > 0) state.addSementes(refund);
+  if (refund > 0) state.addFrag(refund);
   state.persist();
 
   bus.emit("gacha:pulled", { kind, results, refund });

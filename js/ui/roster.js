@@ -9,6 +9,7 @@ import { h, heroCard, heroSheet, stars, emptyState } from "./components.js";
 import { portrait } from "../data/manifest.js";
 import { HEROES } from "../data/heroes.js";
 import { openChapterSelect } from "./menu.js";
+import { EQUIPMENT, EQUIP_SLOTS, RANKS, availableForSlot } from "../data/equipment.js";
 
 let filter = "all";
 
@@ -19,7 +20,7 @@ export function renderRoster(mount) {
         <div>
           <div class="eyebrow">Quartel</div>
           <h1 class="screen-title">Coleção &amp; Esquadrão</h1>
-          <p class="screen-sub">Escale até 4 heróis. O esquadrão inteiro entra na run roguelike.</p>
+          <p class="screen-sub">Escale até 4 heróis. Toque num herói para ver a ficha e equipar itens do 🎒 Arsenal (${state.meta.inventory.length}).</p>
         </div>
         <button class="btn btn--primary" id="go-run">⚔️ Escolher Capítulo</button>
       </div>
@@ -111,27 +112,100 @@ function reset(mount) {
   return mount;
 }
 
+const SLOT_LABEL = { arma: "⚔️ Arma", armadura: "🛡️ Armadura", reliquia: "🩸 Relíquia" };
+
+function equipRow(entry) {
+  return `<div class="equip-slots">${EQUIP_SLOTS.map((slot) => {
+    const iid = entry.equip?.[slot];
+    const inst = iid && state.meta.inventory.find((x) => x.iid === iid);
+    const def = inst && EQUIPMENT[inst.id];
+    return `<button class="equip-slot ${def ? `rank-${def.rank}` : "is-empty"}" data-slot="${slot}">
+      <small>${SLOT_LABEL[slot]}</small>
+      ${def ? `<span class="emoji">${def.emoji}</span><b>${def.name}</b>` : `<span class="muted">— vazio —</span>`}
+    </button>`;
+  }).join("")}</div>`;
+}
+
 function openHeroSheet(uid) {
+  if (!state.getEntry(uid)) return;
+  const { close } = modal(h(`<div id="sheet-body"></div>`));
+  render();
+
+  function render() {
+    const entry = state.getEntry(uid);
+    const view = state.rosterView().find((v) => v.uid === uid);
+    const inSquad = state.isInSquad(uid);
+    const eb = view.equipBonus;
+    const hasEb = eb.atk || eb.def || eb.maxHP || eb.spd;
+    const body = document.getElementById("sheet-body");
+    body.innerHTML = `
+      ${heroSheet(view)}
+      <div class="skill-line">
+        <b style="color:var(--gold)">🎒 Equipamento</b>
+        ${
+          hasEb
+            ? `<div class="muted" style="font-size:.78rem;margin:2px 0 6px">${["atk", "def", "maxHP", "spd"]
+                .filter((k) => eb[k])
+                .map((k) => `+${eb[k]} ${({ atk: "ATK", def: "DEF", maxHP: "HP", spd: "SPD" }[k])}`)
+                .join(" · ")}</div>`
+            : ""
+        }
+        ${equipRow(entry)}
+      </div>
+      <div class="row" style="margin-top:16px">
+        <button class="btn ${inSquad ? "btn--ghost" : "btn--primary"}" data-toggle>
+          ${inSquad ? "Remover do esquadrão" : "Adicionar ao esquadrão"}
+        </button>
+        <button class="btn btn--ghost" data-close>Fechar</button>
+      </div>`;
+
+    body.querySelector("[data-close]").addEventListener("click", close);
+    body.querySelector("[data-toggle]").addEventListener("click", () => {
+      const r = state.toggleSquad(uid);
+      if (r === "full") toast("Esquadrão cheio (4).", "bad");
+      else close();
+    });
+    body.querySelectorAll("[data-slot]").forEach((b) =>
+      b.addEventListener("click", () => openPicker(uid, b.dataset.slot, render))
+    );
+  }
+}
+
+function openPicker(uid, slot, onDone) {
   const entry = state.getEntry(uid);
-  if (!entry) return;
-  const view = state.rosterView().find((v) => v.uid === uid);
-  const inSquad = state.isInSquad(uid);
+  const options = availableForSlot(state.meta.inventory, state.meta.roster, slot);
+  const equipped = entry.equip?.[slot];
 
-  const content = h(`<div>
-    ${heroSheet(view)}
-    <div class="row" style="margin-top:18px">
-      <button class="btn ${inSquad ? "btn--ghost" : "btn--primary"}" data-toggle>
-        ${inSquad ? "Remover do esquadrão" : "Adicionar ao esquadrão"}
-      </button>
-      <button class="btn btn--ghost" data-close>Fechar</button>
-    </div>
-  </div>`);
+  const list = options
+    .slice()
+    .sort((a, b) => RANKS[EQUIPMENT[b.id].rank].order - RANKS[EQUIPMENT[a.id].rank].order)
+    .map((inst) => {
+      const d = EQUIPMENT[inst.id];
+      const mods = ["atk", "def", "maxHP", "spd"]
+        .filter((k) => d.mods[k])
+        .map((k) => `${d.mods[k] > 0 ? "+" : ""}${d.mods[k]} ${({ atk: "ATK", def: "DEF", maxHP: "HP", spd: "SPD" }[k])}`)
+        .join(" · ");
+      return `<button class="choice rank-${d.rank}" data-iid="${inst.iid}">
+        <b>${d.emoji} ${d.name} <span class="rank-tag">${RANKS[d.rank].label}</span></b>
+        <small>${mods} — ${d.desc}</small>
+      </button>`;
+    })
+    .join("");
 
-  const { close } = modal(content);
-  content.querySelector("[data-close]").addEventListener("click", close);
-  content.querySelector("[data-toggle]").addEventListener("click", () => {
-    const r = state.toggleSquad(uid);
-    if (r === "full") toast("Esquadrão cheio (4).", "bad");
-    close();
-  });
+  const { box, close } = modal(`
+    <h2 style="margin-bottom:4px">${SLOT_LABEL[slot]}</h2>
+    <p class="muted" style="margin-bottom:14px">Escolha um equipamento livre para este slot.</p>
+    <div class="choice-list">
+      ${equipped ? `<button class="choice" data-iid=""><b>✕ Desequipar</b></button>` : ""}
+      ${list || `<p class="muted">Nenhum item de ${slot} disponível. Ganhe equipamentos vencendo batalhas nas runs.</p>`}
+    </div>`);
+
+  box.querySelectorAll("[data-iid]").forEach((b) =>
+    b.addEventListener("click", () => {
+      if (b.dataset.iid) state.equipItem(uid, b.dataset.iid);
+      else state.unequipItem(uid, slot);
+      close();
+      onDone();
+    })
+  );
 }

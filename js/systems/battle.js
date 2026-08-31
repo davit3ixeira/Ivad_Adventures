@@ -25,6 +25,9 @@ const ENEMY_TRAITS = {
   hilihilihi: { bulwark: 0.25 }, // névoa de ilusões
   helehelehe: { bulwark: 0.25 }, // pele de ferro
   halahalaha: { double: true, openerBonus: 0.15 }, // reflexos sobrenaturais + ímpeto
+  colosso_projecao: { bulwark: 0.25, cleave: 0.35 }, // figura gigante de energia
+  sentinela_alfa: { omniCounter: true }, // guardião de outra realidade
+  corrompido_macula: { openerBonus: 0.2 }, // ambição cobra o preço
   // ── chefes ──────────────────────────────────────────────
   takimatida_sombrio: { double: true, omniCounter: true, cleave: 0.4 },
   korlok: { rage: 3, cleave: 0.55 },
@@ -150,6 +153,7 @@ export function createBattle(run, node) {
       units.push({
         key: `A${i}`,
         uid: u.uid,
+        heroId: u.id,
         team: "ally",
         name: u.name,
         emoji: u.emoji,
@@ -162,7 +166,7 @@ export function createBattle(run, node) {
         stats: { atk: eff.atk, def: eff.def, spd: eff.spd, mov: eff.mov, rng: eff.rng },
         skill: HEROES[u.id].skill?.effect ?? { type: "none" },
         active: HEROES[u.id].active ?? null,
-        charge: 0,
+        charge: Math.min(HEROES[u.id].active?.charge ?? 0, u.charge || 0), // carga acumulada da run
         chargeMax: HEROES[u.id].active?.charge ?? 0,
         guard: 0,
         buffs: null,
@@ -223,8 +227,83 @@ export function createBattle(run, node) {
     firstHitPending: triggers.some((t) => t.trigger === "firstHitDouble"),
     cheatDeathReady: triggers.some((t) => t.trigger === "cheatDeath"),
     lastAllyActor: null, // último herói que o jogador usou (ganha +1 carga ao fim do turno)
+    fusion: null, // { ivadUid, oaojUid, maxHP } enquanto a Fusão estiver ativa
     over: null, // 'win' | 'loss'
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FUSÃO (BETA) — Ivad + Oaoj → Ivão
+// ═══════════════════════════════════════════════════════════════════════════
+const IVAO_ACTIVE = {
+  name: "Punho de Ivão",
+  banner: "PUNHO DE IVÃO!!!",
+  kind: "line",
+  power: 3.2,
+  range: 6,
+  charge: 2,
+  fx: "impact",
+};
+
+/** Ivad e Oaoj vivos, ambos livres e com o Especial cheio? Devolve o par ou null. */
+export function canFuse(battle) {
+  if (battle.fusion || battle.phase !== "player" || battle.over) return null;
+  const ivad = battle.units.find((u) => u.alive && u.heroId === "ivad");
+  const oaoj = battle.units.find((u) => u.alive && u.heroId === "oaoj");
+  if (!ivad || !oaoj) return null;
+  if (ivad.acted || oaoj.acted) return null;
+  if (ivad.charge < ivad.chargeMax || oaoj.charge < oaoj.chargeMax) return null;
+  return { ivad, oaoj };
+}
+
+export function doFusion(battle) {
+  const pair = canFuse(battle);
+  if (!pair) return null;
+  const { ivad, oaoj } = pair;
+  const spot = { x: ivad.x, y: ivad.y };
+  ivad.alive = false;
+  oaoj.alive = false;
+  const maxHP = ivad.maxHP + oaoj.maxHP;
+  const curHP = Math.min(maxHP, Math.round((ivad.curHP + oaoj.curHP) * 0.9 + maxHP * 0.1));
+
+  battle.units.push({
+    key: "FUSAO",
+    heroId: "ivao",
+    team: "ally",
+    name: "Ivão",
+    emoji: "🦾",
+    big: true,
+    types: ["fisico", "projecao", "mana"], // divino
+    role: "bruiser",
+    x: spot.x,
+    y: spot.y,
+    maxHP,
+    curHP,
+    stats: {
+      atk: Math.round(ivad.stats.atk + oaoj.stats.atk * 0.6),
+      def: Math.max(ivad.stats.def, oaoj.stats.def) + 5,
+      spd: Math.round((ivad.stats.spd + oaoj.stats.spd) / 2),
+      mov: 3,
+      rng: 1,
+    },
+    skill: { type: "bulwark", pct: 0.18 },
+    active: IVAO_ACTIVE,
+    charge: IVAO_ACTIVE.charge,
+    chargeMax: IVAO_ACTIVE.charge,
+    guard: 0,
+    buffs: null,
+    reflectPending: false,
+    traits: { cleave: 0.35, ignoreWheel: true },
+    alive: true,
+    acted: false,
+    tookDamage: false,
+  });
+
+  battle.fusion = { ivadUid: ivad.uid, oaojUid: oaoj.uid, maxHP };
+  battle.lastAllyActor = "FUSAO";
+  battle.log.push("⚡⚡ IVAD + OAOJ se fundem em IVÃO!");
+  updateOutcome(battle);
+  return { name: "FUSÃO", banner: "IVAD + OAOJ → IVÃO!", fx: "impact", from: spot, aim: spot, affected: [spot] };
 }
 
 // --------------------------------------------------------------- consultas
@@ -375,15 +454,15 @@ function strike(battle, src, tgt, ctx) {
     if (back > 0) {
       src.curHP -= back;
       battle.floaters.push({ x: src.x, y: src.y, text: `-${back}`, kind: "crit" });
-      handleDeath(battle, src);
+      handleDeath(battle, src, tgt);
     }
   }
 
-  handleDeath(battle, tgt);
+  handleDeath(battle, tgt, src);
 }
 
-/** Morte, "cheat death" de relíquia e cura por execução (Eco Espiritual). */
-function handleDeath(battle, tgt) {
+/** Morte, "cheat death" de relíquia, cura por execução e CARGA por abate. */
+function handleDeath(battle, tgt, killer) {
   if (tgt.curHP > 0 || !tgt.alive) return;
   if (tgt.team === "ally" && battle.cheatDeathReady) {
     tgt.curHP = 1;
@@ -394,13 +473,20 @@ function handleDeath(battle, tgt) {
   tgt.curHP = 0;
   tgt.alive = false;
   battle.log.push(`☠️ ${tgt.name} caiu.`);
-  if (tgt.team === "enemy" && (battle.aura.execHeal || 0) > 0) {
-    battle.units
-      .filter((u) => u.alive && u.team === "ally")
-      .forEach((a) => {
-        a.curHP = Math.min(a.maxHP, a.curHP + battle.aura.execHeal);
-        battle.floaters.push({ x: a.x, y: a.y, text: `+${battle.aura.execHeal}`, kind: "heal" });
-      });
+  if (tgt.team === "enemy") {
+    // carga do especial: quem dá o golpe final acumula
+    if (killer && killer.team === "ally" && killer.chargeMax) {
+      killer.charge = Math.min(killer.chargeMax, killer.charge + 1);
+      battle.floaters.push({ x: killer.x, y: killer.y, text: "✨", kind: "heal" });
+    }
+    if ((battle.aura.execHeal || 0) > 0) {
+      battle.units
+        .filter((u) => u.alive && u.team === "ally")
+        .forEach((a) => {
+          a.curHP = Math.min(a.maxHP, a.curHP + battle.aura.execHeal);
+          battle.floaters.push({ x: a.x, y: a.y, text: `+${battle.aura.execHeal}`, kind: "heal" });
+        });
+    }
   }
 }
 
@@ -444,9 +530,7 @@ export function resolveCombat(battle, atk, def) {
     strike(battle, def, atk, { initiating: false, firstOfCombat: false });
   }
 
-  // carrega o Especial de quem atacou
-  if (atk.team === "ally" && atk.alive && atk.chargeMax) atk.charge = Math.min(atk.chargeMax, atk.charge + 1);
-
+  // (a carga do Especial agora vem de ABATES — ver handleDeath — e do fim de turno)
   updateOutcome(battle);
   return battle.log.slice(from);
 }
@@ -698,7 +782,7 @@ function specialStrike(battle, src, tgt, power, opts = {}) {
   battle.floaters.push({ x: tgt.x, y: tgt.y, text: `-${dmg}`, kind: "crit" });
   if (!opts.silent) battle.log.push(`✨ ${src.name} → ${tgt.name}: ${dmg}!`);
   else battle.log.push(`💥 onda de choque atinge ${tgt.name} (${dmg}).`);
-  handleDeath(battle, tgt);
+  handleDeath(battle, tgt, src);
   return dmg;
 }
 

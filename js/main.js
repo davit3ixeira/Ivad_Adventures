@@ -35,10 +35,10 @@ const elFrag = document.getElementById("wallet-fragmentos");
 const fragWrap = document.getElementById("wallet-fragmentos-wrap");
 
 function refreshWallet() {
-  elSem.textContent = state.meta.sementes;
+  elSem.textContent = state.meta.frag;
   if (state.run) {
     fragWrap.hidden = false;
-    elFrag.textContent = state.run.fragmentos;
+    elFrag.textContent = state.run.gemas;
   } else {
     fragWrap.hidden = true;
   }
@@ -65,10 +65,11 @@ bus.on("hero:new", ({ heroId }) => {
 });
 
 /* ---------------------------------------------------------- run encerrada */
-bus.on("run:ended", ({ victory, abandoned }) => {
+bus.on("run:ended", ({ victory, abandoned, loot }) => {
   if (abandoned) return;
   if (victory) toast("Capítulo concluído! 🌟", "good", 3200);
   else toast("A jornada terminou. Tente de novo com um novo esquadrão.", "bad", 3600);
+  if (loot > 0) toast(`🎒 ${loot} equipamento${loot > 1 ? "s" : ""} no Arsenal.`, "gold", 3000);
 });
 
 /* ---------------------------------------------------------- start */
@@ -76,5 +77,5 @@ router.go("menu");
 
 // atalho de dev: ?seed de sementes
 if (new URLSearchParams(location.search).has("rico")) {
-  state.addSementes(500);
+  state.addFrag(500);
 }

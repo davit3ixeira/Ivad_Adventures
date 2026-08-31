@@ -29,6 +29,8 @@ import {
   useActive,
   activeNeedsAim,
   activeTargetTiles,
+  canFuse,
+  doFusion,
 } from "../systems/battle.js";
 import { recordBattleWin, endRunDefeat, syncSquadHP } from "../systems/run.js";
 
@@ -221,6 +223,7 @@ function unitHTML(u, highlighted, armed) {
   const done = u.team === "ally" && u.acted ? "is-done" : "";
   const tgtCls = highlighted && u.team === "enemy" ? "is-target" : "";
   const armedCls = armed ? "is-armed" : "";
+  const bigCls = u.big ? "is-big" : "";
   const artId = u.team === "ally" ? heroIdOf(u) : u.enemyId;
 
   let charge = "";
@@ -228,13 +231,15 @@ function unitHTML(u, highlighted, armed) {
   if (u.team === "ally" && u.chargeMax) {
     const ready = u.charge >= u.chargeMax;
     if (ready && !u.acted) readyCls = "is-ready-special";
-    const pips = Array.from({ length: u.chargeMax }, (_, i) => `<i class="${i < u.charge ? "on" : ""}"></i>`).join("");
-    charge = `<span class="unit__charge ${ready ? "is-ready" : ""}">${ready ? "✨" : pips}</span>`;
+    const pct = Math.min(100, (u.charge / u.chargeMax) * 100);
+    charge = `<span class="unit__charge ${ready ? "is-ready" : ""}" title="Especial ${u.charge}/${u.chargeMax}"><i style="width:${pct}%"></i>${
+      ready ? "<em>✨</em>" : ""
+    }</span>`;
   }
   const buff = u.buffs ? '<span class="unit__buff">▲</span>' : u.guard ? '<span class="unit__buff">🛡️</span>' : "";
 
   return `
-    <div class="unit side-${side} ${isSel} ${done} ${tgtCls} ${armedCls} ${readyCls}" data-unit="${u.key}">
+    <div class="unit side-${side} ${isSel} ${done} ${tgtCls} ${armedCls} ${readyCls} ${bigCls}" data-unit="${u.key}">
       ${portrait(u.team === "ally" ? "heroes" : "enemies", artId, u.emoji)}
       <span class="unit__aff aff-${typeClass(u.types)}"></span>
       ${charge}${buff}
@@ -243,7 +248,7 @@ function unitHTML(u, highlighted, armed) {
 }
 
 function heroIdOf(u) {
-  return state.run.squad.find((s) => s.uid === u.uid)?.id;
+  return u.heroId || state.run.squad.find((s) => s.uid === u.uid)?.id;
 }
 
 /* ───────────────────────────── seleção ───────────────────────────── */
@@ -445,6 +450,28 @@ async function castSpecial(aim) {
   await finishTurnIfDone();
 }
 
+async function castFusion() {
+  if (busy || !canFuse(battle)) return;
+  busy = true;
+  sel = null;
+  const data = doFusion(battle);
+  if (!data) {
+    busy = false;
+    paint();
+    return;
+  }
+  playSfx("special");
+  paint();
+  document.getElementById("stage")?.classList.add("shake");
+  setTimeout(() => document.getElementById("stage")?.classList.remove("shake"), 450);
+  await showSkillBanner(data);
+  await playFx(data);
+  paint();
+  await sleep(300);
+  busy = false;
+  await finishTurnIfDone();
+}
+
 /* ───────────────────────────── efeitos na tela ───────────────────────────── */
 function tileCenter(x, y) {
   const cell = document.querySelector(`#grid [data-x="${x}"][data-y="${y}"]`);
@@ -539,9 +566,12 @@ function renderActions() {
   }
 
   if (!sel) {
+    const fuse = canFuse(battle);
     bar.innerHTML = `
+      ${fuse ? '<button class="btn btn--gold spec-ready" id="fuse">⚡ FUSÃO — Ivad + Oaoj</button>' : ""}
       <button class="btn btn--primary" id="end-turn">Encerrar Turno ⏭</button>
       <button class="btn btn--ghost btn--sm" id="retreat">Fugir</button>`;
+    bar.querySelector("#fuse")?.addEventListener("click", castFusion);
     bar.querySelector("#end-turn").addEventListener("click", () => doEnemyTurn());
     bar.querySelector("#retreat").addEventListener("click", confirmRetreat);
     return;
@@ -745,7 +775,7 @@ function showEnd(win) {
   stage.appendChild(overlay);
   overlay.querySelector("#end-cta").addEventListener("click", () => {
     if (win) {
-      syncSquadHP(battle.units);
+      syncSquadHP(battle.units, battle.fusion);
       if (!node.cleared) {
         const outcome = recordBattleWin(node);
         router.go("reward", { nodeId, mode: "battle", outcome });

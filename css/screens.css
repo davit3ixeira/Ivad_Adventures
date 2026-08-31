@@ -165,6 +165,36 @@
 .skill-line { padding: 10px 0; border-top: 1px solid var(--line-soft); }
 .skill-line b { color: var(--rubro); font-family: var(--font-display); }
 
+/* equipamentos */
+.equip-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
+.equip-slot {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 9px 6px; border-radius: var(--radius-sm);
+  background: var(--bg-void); border: 1px solid var(--line);
+  cursor: pointer; text-align: center; color: var(--text);
+  transition: border-color 0.15s, transform 0.1s;
+}
+.equip-slot:hover { transform: translateY(-2px); border-color: var(--gold-deep); }
+.equip-slot small { color: var(--text-mute); font-size: 0.68rem; }
+.equip-slot .emoji { font-size: 1.4rem; }
+.equip-slot b { font-size: 0.74rem; line-height: 1.2; }
+.equip-slot.is-empty { opacity: 0.7; }
+
+.rank-comum   { --rank: #9aa4b2; }
+.rank-raro    { --rank: #63b6ff; }
+.rank-epico   { --rank: #c86bff; }
+.rank-lendario{ --rank: #ffce6b; }
+.equip-slot:not(.is-empty) { border-color: var(--rank); box-shadow: inset 0 0 14px -8px var(--rank); }
+.equip-slot:not(.is-empty) b { color: var(--rank); }
+.choice.rank-comum b, .choice.rank-raro b, .choice.rank-epico b, .choice.rank-lendario b { color: var(--rank); }
+.choice[class*="rank-"] { border-left: 3px solid var(--rank); }
+.rank-tag {
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em;
+  padding: 1px 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--rank) 22%, transparent);
+  color: var(--rank); vertical-align: middle;
+}
+
 /* ---------- Mapa Roguelike ---------- */
 .run-hud {
   display: flex;
@@ -187,6 +217,13 @@
 .run-hud__unit.is-down { opacity: 0.4; filter: grayscale(1); }
 .run-hud__hp { font-variant-numeric: tabular-nums; color: var(--nature); }
 .run-hud__hp.is-low { color: var(--rubro); }
+.run-hud__spec {
+  width: 28px; height: 5px; border-radius: 3px;
+  background: rgba(0,0,0,0.5); border: 1px solid var(--line-soft);
+  overflow: hidden;
+}
+.run-hud__spec i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width 0.3s; }
+.run-hud__spec.is-ready { border-color: var(--gold); box-shadow: 0 0 6px -1px var(--gold); }
 .run-hud__relics { margin-left: auto; display: flex; gap: 5px; font-size: 1.1rem; }
 
 .map-scroll {

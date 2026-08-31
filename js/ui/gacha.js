@@ -16,19 +16,19 @@ export function renderGacha(mount) {
     <section>
       <div class="screen-head">
         <div class="eyebrow">Portal de Invocação</div>
-        <h1 class="screen-title">Sementes Primordiais</h1>
-        <p class="screen-sub">Ecos dos heróis da saga respondem ao chamado. Gaste Sementes e veja quem atende.</p>
+        <h1 class="screen-title">Fragmentos Universais</h1>
+        <p class="screen-sub">Ecos dos heróis da saga respondem ao chamado. Gaste Fragmentos e veja quem atende.</p>
       </div>
 
       <div class="summon">
         <div class="summon__stage" id="summon-stage">
-          <div class="summon__altar">🌱</div>
+          <div class="summon__altar">💠</div>
           <div class="summon__hint">O altar aguarda uma oferenda.</div>
         </div>
 
         <div class="panel summon__panel">
           <div class="row row--between">
-            <b>Saldo</b><b>${state.meta.sementes} 🌱</b>
+            <b>Saldo</b><b>${state.meta.frag} 💠</b>
           </div>
           <div class="summon__rates">
             <div><span class="stars" style="--rar:var(--r5)">${stars(5)}</span><span>${rates[5]}</span></div>
@@ -46,10 +46,10 @@ export function renderGacha(mount) {
 
           <div class="stack" style="--g:10px; margin-top:18px">
             <button class="btn btn--primary btn--block" id="pull-1" ${canAfford("single") ? "" : "disabled"}>
-              Invocar ×1 — ${GACHA.costSingle} 🌱
+              Invocar ×1 — ${GACHA.costSingle} 💠
             </button>
             <button class="btn btn--gold btn--block" id="pull-5" ${canAfford("multi") ? "" : "disabled"}>
-              Invocar ×5 — ${GACHA.costMulti} 🌱 <span class="muted" style="font-size:.8rem">(4★ garantido)</span>
+              Invocar ×5 — ${GACHA.costMulti} 💠 <span class="muted" style="font-size:.8rem">(4★ garantido)</span>
             </button>
             <button class="btn btn--ghost btn--block" data-nav="roster">Ver Coleção</button>
           </div>
@@ -63,7 +63,7 @@ export function renderGacha(mount) {
   const pull = (kind) => {
     const res = summon(kind);
     if (res.error) {
-      toast("Sementes Primordiais insuficientes.", "bad");
+      toast("Fragmentos Universais insuficientes.", "bad");
       return;
     }
     playSfx("summon");
@@ -97,7 +97,7 @@ function showReveal(stage, results, refund, done) {
       <div class="eyebrow">${best === 5 ? "✦ LENDA INVOCADA ✦" : best === 4 ? "Invocação Rara" : "Invocação"}</div>
       <div class="reveal__cards">${cards}</div>
       <div class="muted" style="font-size:.85rem">${
-        refund > 0 ? `Cópias converteram-se em +${refund} 🌱 e progresso de nível.` : "&nbsp;"
+        refund > 0 ? `Cópias converteram-se em +${refund} 💠 e progresso de nível.` : "&nbsp;"
       }</div>
       <button class="btn btn--primary" data-close>Continuar</button>
     </div>

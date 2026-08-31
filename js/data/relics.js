@@ -9,7 +9,7 @@
  * ter gatilhos lidos por systems/battle.js:
  *   firstHitDouble  → primeiro golpe de cada batalha causa dano dobrado
  *   cheatDeath      → sobrevive a um golpe fatal com 1 HP (1× por batalha)
- *   bountyOnWin     → +N Sementes Primordiais ao vencer qualquer batalha
+ *   bountyOnWin     → +N Fragmentos Universais ao vencer qualquer batalha
  */
 
 export const RELICS = [
@@ -54,7 +54,7 @@ export const RELICS = [
     id: "semente_rachada",
     name: "Semente Rachada",
     emoji: "🌰",
-    text: "+2 Sementes Primordiais sempre que uma batalha é vencida.",
+    text: "+2 Fragmentos Universais sempre que uma batalha é vencida.",
     mod: {},
     trigger: "bountyOnWin",
     triggerValue: 2,

@@ -10,6 +10,7 @@ import { NODE_META } from "../systems/mapgen.js";
 import { startRun, optionsFrom, currentNode, travelTo, endRunVictory } from "../systems/run.js";
 import { getChapter } from "../data/chapters.js";
 import { ENEMIES } from "../data/enemies.js";
+import { HEROES } from "../data/heroes.js";
 import { RELICS_BY_ID } from "../data/relics.js";
 import { UPGRADES_BY_ID } from "../data/upgrades.js";
 import { portrait } from "../data/manifest.js";
@@ -131,15 +132,19 @@ function renderHud(hud) {
       ${run.squad
         .map((u) => {
           const low = u.curHP / u.base.maxHP <= 0.35;
-          return `<span class="run-hud__unit ${u.curHP <= 0 ? "is-down" : ""}" title="${u.name}">
+          const cm = HEROES[u.id]?.active?.charge || 0;
+          const cpct = cm ? Math.min(100, ((u.charge || 0) / cm) * 100) : 0;
+          const ready = cm && (u.charge || 0) >= cm;
+          return `<span class="run-hud__unit ${u.curHP <= 0 ? "is-down" : ""}" title="${u.name} · Especial ${u.charge || 0}/${cm}">
             ${portrait("heroes", u.id, u.emoji)}
             <span class="run-hud__hp ${low ? "is-low" : ""}">${Math.max(0, Math.round(u.curHP))}/${u.base.maxHP}</span>
+            ${cm ? `<span class="run-hud__spec ${ready ? "is-ready" : ""}"><i style="width:${cpct}%"></i></span>` : ""}
           </span>`;
         })
         .join("")}
     </div>
-    <span class="run-hud__unit">🔥 <b>${run.fragmentos}</b> Fragmentos</span>
-    <span class="run-hud__unit">🌱 <b>${state.meta.sementes}</b></span>
+    <span class="run-hud__unit" title="Gemas — moeda da run">💎 <b>${run.gemas}</b></span>
+    <span class="run-hud__unit" title="Fragmentos Universais">💠 <b>${state.meta.frag}</b></span>
     <div class="run-hud__relics">
       ${run.relics.map((id) => `<span title="${RELICS_BY_ID[id]?.name ?? ""}">${RELICS_BY_ID[id]?.emoji ?? "🩸"}</span>`).join("")}
       ${run.upgrades

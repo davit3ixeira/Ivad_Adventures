@@ -11,6 +11,7 @@ import { modal } from "./toast.js";
 import { h } from "./components.js";
 import { clearNode, grantRandomUpgradeChoices, addUpgrade, endRunVictory } from "../systems/run.js";
 import { getChapter, CHAPTERS } from "../data/chapters.js";
+import { EQUIPMENT, RANKS } from "../data/equipment.js";
 
 export function renderReward(mount, { nodeId, mode = "upgrade", outcome = null }) {
   const run = state.run;
@@ -22,11 +23,19 @@ export function renderReward(mount, { nodeId, mode = "upgrade", outcome = null }
   const rewardCards =
     mode === "battle" && outcome
       ? `<div class="reward-grid" style="margin-bottom:28px">
-          <div class="reward-card" style="cursor:default"><span class="emoji">🌱</span><b>+${outcome.rewards.sementes}</b><p>Sementes Primordiais</p></div>
-          <div class="reward-card" style="cursor:default"><span class="emoji">🔥</span><b>+${outcome.rewards.fragmentos}</b><p>Fragmentos de Magma</p></div>
+          <div class="reward-card" style="cursor:default"><span class="emoji">💠</span><b>+${outcome.rewards.frag}</b><p>Fragmentos Universais</p></div>
+          <div class="reward-card" style="cursor:default"><span class="emoji">💎</span><b>+${outcome.rewards.gemas}</b><p>Gemas</p></div>
           ${
             outcome.rewards.relic
               ? `<div class="reward-card" style="cursor:default"><span class="emoji">${outcome.rewards.relic.emoji}</span><b>${outcome.rewards.relic.name}</b><p>${outcome.rewards.relic.text}</p></div>`
+              : ""
+          }
+          ${
+            outcome.rewards.equip && EQUIPMENT[outcome.rewards.equip.id]
+              ? (() => {
+                  const d = EQUIPMENT[outcome.rewards.equip.id];
+                  return `<div class="reward-card rank-${d.rank}" style="cursor:default"><span class="emoji">${d.emoji}</span><b>${d.name}</b><p><span class="rank-tag">${RANKS[d.rank].label}</span> — vai pro Arsenal</p></div>`;
+                })()
               : ""
           }
         </div>`

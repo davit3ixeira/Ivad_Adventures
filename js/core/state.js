@@ -9,9 +9,10 @@
 import { storage } from "./storage.js";
 import { bus } from "./bus.js";
 import { HEROES, heroStats, xpForNext, LEVEL_CAP } from "../data/heroes.js";
+import { equipBonus, EQUIPMENT } from "../data/equipment.js";
 
-const SAVE_VERSION = 2; // v2: sistema de tipos (físico/projeção/mana), rebalanço
-const STARTING_SEMENTES = 100;
+const SAVE_VERSION = 3; // v3: moedas (Fragmentos Universais / Gemas), equipamentos, carga por abate
+const START_FRAG = 100;
 const STARTER_HERO = "joao"; // tanque durável p/ começar; Davi (curandeiro) e Ivad vêm da Invocação
 
 let _seq = 0;
@@ -21,11 +22,12 @@ function freshMeta() {
   return {
     version: SAVE_VERSION,
     createdAt: Date.now(),
-    sementes: STARTING_SEMENTES,
+    frag: START_FRAG, // Fragmentos Universais — moeda de Invocação
     pity: 0, // invocações desde o último 5★
     pulls: 0, // total de invocações
-    roster: [], // [{ uid, id, level, xp, dupes }]
+    roster: [], // [{ uid, id, level, xp, dupes, equip:{arma,armadura,reliquia} }]
     squad: [], // [uid, ...] até 4
+    inventory: [], // [{ iid, id }] equipamentos obtidos
     unlockedChapter: 1,
     runsWon: 0,
     firstFivePity: 60, // 5★ garantido nesta contagem
@@ -54,11 +56,12 @@ export const state = {
       const old = saved.meta;
       this.meta = {
         ...freshMeta(),
-        sementes: old.sementes ?? STARTING_SEMENTES,
+        frag: old.sementes ?? old.frag ?? START_FRAG,
         pity: old.pity ?? 0,
         pulls: old.pulls ?? 0,
-        roster: (old.roster || []).filter((e) => HEROES[e.id]),
+        roster: (old.roster || []).filter((e) => HEROES[e.id]).map((e) => ({ ...e, equip: e.equip || {} })),
         squad: (old.squad || []).slice(0, 4),
+        inventory: old.inventory || [],
         unlockedChapter: old.unlockedChapter ?? 1,
         runsWon: old.runsWon ?? 0,
       };
@@ -88,15 +91,15 @@ export const state = {
   },
 
   // ---------------------------------------------------- moeda
-  addSementes(n) {
-    this.meta.sementes = Math.max(0, this.meta.sementes + n);
+  addFrag(n) {
+    this.meta.frag = Math.max(0, this.meta.frag + n);
     bus.emit("wallet:changed");
     this.persist();
   },
 
-  spendSementes(n) {
-    if (this.meta.sementes < n) return false;
-    this.meta.sementes -= n;
+  spendFrag(n) {
+    if (this.meta.frag < n) return false;
+    this.meta.frag -= n;
     bus.emit("wallet:changed");
     this.persist();
     return true;
@@ -118,7 +121,7 @@ export const state = {
       return { entry: existing, isNew: false };
     }
 
-    const entry = { uid: newUid(), id: heroId, level: 1, xp: 0, dupes: 0 };
+    const entry = { uid: newUid(), id: heroId, level: 1, xp: 0, dupes: 0, equip: {} };
     this.meta.roster.push(entry);
     if (this.meta.squad.length < 4) this.meta.squad.push(entry.uid);
     this.persist();
@@ -134,8 +137,57 @@ export const state = {
   rosterView() {
     return this.meta.roster
       .filter((e) => HEROES[e.id])
-      .map((e) => ({ ...e, def: HEROES[e.id], stats: heroStats(e) }))
+      .map((e) => {
+        const s = heroStats(e);
+        const eb = equipBonus(e, this.meta.inventory);
+        return {
+          ...e,
+          def: HEROES[e.id],
+          stats: {
+            maxHP: s.maxHP + eb.maxHP,
+            atk: Math.max(1, s.atk + eb.atk),
+            def: Math.max(0, s.def + eb.def),
+            spd: Math.max(1, s.spd + eb.spd),
+            mov: s.mov,
+            rng: s.rng,
+          },
+          baseStats: s,
+          equipBonus: eb,
+        };
+      })
       .sort((a, b) => b.def.star - a.def.star || a.def.name.localeCompare(b.def.name));
+  },
+
+  // ---------------------------------------------------- equipamentos
+  equipItem(uid, iid) {
+    const entry = this.getEntry(uid);
+    const inst = this.meta.inventory.find((x) => x.iid === iid);
+    if (!entry || !inst) return false;
+    const def = EQUIPMENT[inst.id];
+    if (!def) return false;
+    // tira o item de quem já estiver com ele
+    for (const other of this.meta.roster) {
+      if (other.equip?.[def.slot] === iid) other.equip[def.slot] = null;
+    }
+    entry.equip = entry.equip || {};
+    entry.equip[def.slot] = iid;
+    this.persist();
+    bus.emit("roster:changed");
+    return true;
+  },
+
+  unequipItem(uid, slot) {
+    const entry = this.getEntry(uid);
+    if (entry?.equip?.[slot]) {
+      entry.equip[slot] = null;
+      this.persist();
+      bus.emit("roster:changed");
+    }
+  },
+
+  equipMods(uid) {
+    const entry = this.getEntry(uid);
+    return entry ? equipBonus(entry, this.meta.inventory) : { atk: 0, def: 0, maxHP: 0, spd: 0 };
   },
 
   squadEntries() {

@@ -159,6 +159,12 @@ export function createBattle(run, node) {
         curHP: startHP,
         stats: { atk: eff.atk, def: eff.def, spd: eff.spd, mov: eff.mov, rng: eff.rng },
         skill: HEROES[u.id].skill?.effect ?? { type: "none" },
+        active: HEROES[u.id].active ?? null,
+        charge: 0,
+        chargeMax: HEROES[u.id].active?.charge ?? 0,
+        guard: 0,
+        buffs: null,
+        reflectPending: false,
         traits: {},
         alive: true,
         acted: false,
@@ -298,7 +304,8 @@ function strike(battle, src, tgt, ctx) {
   if (src.traits?.pierce) tgtDef -= src.traits.pierce;
   tgtDef = Math.max(0, tgtDef);
 
-  let dmg = Math.max(1, Math.round(src.stats.atk * mult) - tgtDef);
+  const srcAtk = src.stats.atk + (src.buffs?.atk || 0);
+  let dmg = Math.max(1, Math.round(srcAtk * mult) - tgtDef);
 
   // multiplicadores ofensivos
   let bonus = 1 + (srcAura.dmgUp || 0);
@@ -328,7 +335,8 @@ function strike(battle, src, tgt, ctx) {
   let reduce = tgtAura.dmgReduction || 0;
   if (tgt.skill?.type === "bulwark") reduce += tgt.skill.pct;
   if (tgt.traits?.bulwark) reduce += tgt.traits.bulwark;
-  reduce = Math.min(0.75, reduce);
+  if (tgt.guard) reduce += tgt.guard; // Domo de Carapaça (Oaoj)
+  reduce = Math.min(0.85, reduce);
   dmg = Math.max(1, Math.round(dmg * (1 - reduce)));
 
   tgt.curHP -= dmg;
@@ -338,7 +346,7 @@ function strike(battle, src, tgt, ctx) {
     `${src.name} → ${tgt.name}: ${dmg} de dano${mult > 1 ? " (vantagem!)" : mult < 1 ? " (resistido)" : ""}.`
   );
 
-  // roubo de vida (aura + Soco da Natureza de Xing Zang)
+  // roubo de vida (aura + Harmonia de Xing Zang)
   let ls = srcAura.lifesteal || 0;
   if (src.skill?.type === "naturePunch") ls += src.skill.pct || 0;
   if (ls && src.alive) {
@@ -349,24 +357,37 @@ function strike(battle, src, tgt, ctx) {
     }
   }
 
-  if (tgt.curHP <= 0) {
-    if (tgt.team === "ally" && battle.cheatDeathReady) {
-      tgt.curHP = 1;
-      battle.cheatDeathReady = false;
-      battle.log.push(`✦ ${tgt.name} resiste com 1 de HP! (Amuleto de Ariexiet)`);
-    } else {
-      tgt.curHP = 0;
-      tgt.alive = false;
-      battle.log.push(`☠️ ${tgt.name} caiu.`);
-      if (tgt.team === "enemy" && (battle.aura.execHeal || 0) > 0) {
-        battle.units
-          .filter((u) => u.alive && u.team === "ally")
-          .forEach((a) => {
-            a.curHP = Math.min(a.maxHP, a.curHP + battle.aura.execHeal);
-            battle.floaters.push({ x: a.x, y: a.y, text: `+${battle.aura.execHeal}`, kind: "heal" });
-          });
-      }
-    }
+  // Reflexo Total (Kão-Woji): devolve 100% do golpe ao agressor
+  if (tgt.reflectPending && tgt.team === "ally" && src.team === "enemy") {
+    tgt.reflectPending = false;
+    src.curHP -= dmg;
+    battle.floaters.push({ x: src.x, y: src.y, text: `-${dmg}`, kind: "crit" });
+    battle.log.push(`🪞 ${tgt.name} reflete ${dmg} de volta em ${src.name}!`);
+    handleDeath(battle, src);
+  }
+
+  handleDeath(battle, tgt);
+}
+
+/** Morte, "cheat death" de relíquia e cura por execução (Eco Espiritual). */
+function handleDeath(battle, tgt) {
+  if (tgt.curHP > 0 || !tgt.alive) return;
+  if (tgt.team === "ally" && battle.cheatDeathReady) {
+    tgt.curHP = 1;
+    battle.cheatDeathReady = false;
+    battle.log.push(`✦ ${tgt.name} resiste com 1 de HP! (relíquia)`);
+    return;
+  }
+  tgt.curHP = 0;
+  tgt.alive = false;
+  battle.log.push(`☠️ ${tgt.name} caiu.`);
+  if (tgt.team === "enemy" && (battle.aura.execHeal || 0) > 0) {
+    battle.units
+      .filter((u) => u.alive && u.team === "ally")
+      .forEach((a) => {
+        a.curHP = Math.min(a.maxHP, a.curHP + battle.aura.execHeal);
+        battle.floaters.push({ x: a.x, y: a.y, text: `+${battle.aura.execHeal}`, kind: "heal" });
+      });
   }
 }
 
@@ -379,6 +400,7 @@ function canCounter(atk, def) {
 export function resolveCombat(battle, atk, def) {
   battle.floaters = [];
   const from = battle.log.length;
+  const defHP0 = def.curHP;
 
   strike(battle, atk, def, { initiating: true, firstOfCombat: true });
 
@@ -392,6 +414,12 @@ export function resolveCombat(battle, atk, def) {
   }
   if (atk.alive && def.alive && canCounter(atk, def) && (def.stats.spd - atk.stats.spd >= defThresh || def.traits?.double)) {
     strike(battle, def, atk, { initiating: false, firstOfCombat: false });
+  }
+
+  // carrega o Especial de quem participou
+  if (atk.team === "ally" && atk.alive && atk.chargeMax) atk.charge = Math.min(atk.chargeMax, atk.charge + 1);
+  if (def.team === "ally" && def.alive && def.chargeMax && def.curHP < defHP0) {
+    def.charge = Math.min(def.chargeMax, def.charge + 1);
   }
 
   updateOutcome(battle);
@@ -536,7 +564,14 @@ export async function runEnemyTurn(battle, hooks) {
 
   battle.turn += 1;
   battle.units.forEach((u) => {
-    if (u.team === "ally" && u.alive) u.acted = false;
+    if (u.team === "ally" && u.alive) {
+      u.acted = false;
+      u.guard = 0; // o Domo protegeu durante este turno inimigo
+      if (u.buffs) {
+        u.buffs.turns -= 1;
+        if (u.buffs.turns <= 0) u.buffs = null;
+      }
+    }
   });
   battle.phase = battle.over ? "over" : "player";
   updateOutcome(battle);
@@ -547,4 +582,245 @@ export async function runEnemyTurn(battle, hooks) {
 
 export function battleSnapshotHP(battle) {
   return battle.units.filter((u) => u.team === "ally");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATAQUE SIMPLIFICADO — melhor casa para bater num alvo (usado pelo "1 toque")
+// ═══════════════════════════════════════════════════════════════════════════
+export function bestAttackTile(battle, unit, target) {
+  const range = computeMoveRange(battle, unit);
+  let best = null;
+  let bestScore = -Infinity;
+  for (const [k, cost] of range) {
+    const [x, y] = k.split(",").map(Number);
+    const d = Math.abs(x - target.x) + Math.abs(y - target.y);
+    if (d < 1 || d > unit.stats.rng) continue;
+
+    const terr = battle.grid.tiles[y][x];
+    let s = 0;
+    if (terr === "forest") s += 3;
+    else if (terr === "ruin") s += 1;
+    else if (terr === "magma") s -= 8;
+    if (d > (target.stats.rng || 1)) s += 5; // fora do alcance de revide
+    if (battle.units.some((u) => u.alive && u.team === "ally" && u.key !== unit.key && Math.abs(u.x - x) + Math.abs(u.y - y) === 1))
+      s += 1;
+    s -= cost * 0.3;
+
+    if (s > bestScore) {
+      bestScore = s;
+      best = { x, y };
+    }
+  }
+  return best;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ESPECIAIS ATIVOS
+// ═══════════════════════════════════════════════════════════════════════════
+function crossCells(c) {
+  return [c, { x: c.x + 1, y: c.y }, { x: c.x - 1, y: c.y }, { x: c.x, y: c.y + 1 }, { x: c.x, y: c.y - 1 }];
+}
+function squareCells(c, r = 1) {
+  const out = [];
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) out.push({ x: c.x + dx, y: c.y + dy });
+  return out;
+}
+function lineDir(from, aim) {
+  const dx = aim.x - from.x;
+  const dy = aim.y - from.y;
+  if (Math.abs(dx) >= Math.abs(dy)) return { dx: Math.sign(dx) || 1, dy: 0 };
+  return { dx: 0, dy: Math.sign(dy) };
+}
+function inBounds(battle, x, y) {
+  return x >= 0 && y >= 0 && x < battle.grid.w && y < battle.grid.h;
+}
+
+/** Dano de especial: metade da armadura, ignora desvantagem de afinidade, sem revide. */
+function specialStrike(battle, src, tgt, power, opts = {}) {
+  if (!tgt || !tgt.alive) return 0;
+  let m = affinityMultiplier(src.aff, tgt.aff, tgt.traits?.ignoreWheel);
+  if (m < 1) m = 1;
+  const atk = src.stats.atk + (src.buffs?.atk || 0);
+  let def = tgt.stats.def * 0.5 + terrainDefBonus(battle.grid.tiles[tgt.y][tgt.x]);
+  def = Math.max(0, def - (opts.pierce || 0));
+  let dmg = Math.max(1, Math.round(atk * power * m) - Math.round(def));
+  dmg = Math.round(dmg * (1 + (battle.aura.dmgUp || 0)));
+  const reduce = Math.min(0.6, tgt.traits?.bulwark || 0);
+  dmg = Math.max(1, Math.round(dmg * (1 - reduce)));
+  tgt.curHP -= dmg;
+  tgt.tookDamage = true;
+  battle.floaters.push({ x: tgt.x, y: tgt.y, text: `-${dmg}`, kind: "crit" });
+  battle.log.push(`✨ ${src.name} → ${tgt.name}: ${dmg}!`);
+  handleDeath(battle, tgt);
+  return dmg;
+}
+
+/** O especial deste herói precisa que o jogador mire numa casa? */
+export function activeNeedsAim(unit) {
+  const k = unit.active?.kind;
+  return k === "nuke" || k === "blast" || k === "line" || k === "dash";
+}
+
+/** Casas que a UI ilumina ao entrar no modo especial. */
+export function activeTargetTiles(battle, unit) {
+  const a = unit.active;
+  if (!a) return [];
+  const out = [];
+  const range = a.range || 4;
+
+  if (a.kind === "nuke" || a.kind === "blast") {
+    for (const e of battle.units) {
+      if (!e.alive || e.team === unit.team) continue;
+      if (manhattan(e, unit) <= range) out.push({ x: e.x, y: e.y });
+    }
+  } else if (a.kind === "line") {
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      for (let i = 1; i <= range; i++) {
+        const x = unit.x + dx * i;
+        const y = unit.y + dy * i;
+        if (!inBounds(battle, x, y)) break;
+        out.push({ x, y });
+        if (battle.grid.tiles[y][x] === "wall") break;
+      }
+    }
+  } else if (a.kind === "dash") {
+    for (let y = 0; y < battle.grid.h; y++) {
+      for (let x = 0; x < battle.grid.w; x++) {
+        if (Math.max(Math.abs(x - unit.x), Math.abs(y - unit.y)) > range) continue;
+        if (battle.grid.tiles[y][x] === "wall") continue;
+        if (battle.units.some((u) => u.alive && u.x === x && u.y === y)) continue;
+        if (x === unit.x && y === unit.y) continue;
+        out.push({ x, y });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Aciona o especial de `unit`. `aim` = casa mirada (ou null p/ cura/rally/etc).
+ * Devolve dados para a animação: { name, banner, fx, from, affected[] } ou null.
+ */
+export function useActive(battle, unit, aim) {
+  const a = unit.active;
+  if (!a || unit.acted || unit.team !== "ally" || battle.phase !== "player") return null;
+  if (unit.charge < unit.chargeMax) return null;
+
+  battle.floaters = [];
+  const from = { x: unit.x, y: unit.y };
+  const affected = [];
+
+  switch (a.kind) {
+    case "nuke": {
+      const tgt = battle.units.find((u) => u.alive && u.team !== unit.team && u.x === aim.x && u.y === aim.y);
+      if (!tgt) return null;
+      specialStrike(battle, unit, tgt, a.power, { pierce: a.pierce || 0 });
+      affected.push({ x: aim.x, y: aim.y });
+      break;
+    }
+    case "blast": {
+      const cells = a.shape === "square" ? squareCells(aim, 1) : crossCells(aim);
+      for (const c of cells) {
+        if (!inBounds(battle, c.x, c.y)) continue;
+        affected.push(c);
+        const tgt = battle.units.find((u) => u.alive && u.team !== unit.team && u.x === c.x && u.y === c.y);
+        if (tgt) {
+          const center = c.x === aim.x && c.y === aim.y;
+          specialStrike(battle, unit, tgt, a.power * (center ? 1 : 0.8), { pierce: a.pierce || 0 });
+        }
+      }
+      break;
+    }
+    case "line": {
+      const dir = lineDir(unit, aim);
+      let x = unit.x + dir.dx;
+      let y = unit.y + dir.dy;
+      let first = true;
+      for (let i = 0; i < (a.range || 5); i++) {
+        if (!inBounds(battle, x, y)) break;
+        affected.push({ x, y });
+        if (battle.grid.tiles[y][x] === "wall") break;
+        const tgt = battle.units.find((u) => u.alive && u.team !== unit.team && u.x === x && u.y === y);
+        if (tgt) specialStrike(battle, unit, tgt, first ? a.power : a.power * (1 - (a.falloff || 0)), { pierce: a.pierce || 0 });
+        first = false;
+        x += dir.dx;
+        y += dir.dy;
+      }
+      break;
+    }
+    case "heal": {
+      const targets =
+        a.shape === "all"
+          ? battle.units.filter((u) => u.alive && u.team === "ally")
+          : battle.units.filter((u) => u.alive && u.team === "ally" && (u.key === unit.key || manhattan(u, unit) === 1));
+      for (const u of targets) {
+        const before = u.curHP;
+        u.curHP = Math.min(u.maxHP, u.curHP + Math.round(a.power * u.maxHP));
+        if (u.curHP > before) battle.floaters.push({ x: u.x, y: u.y, text: `+${u.curHP - before}`, kind: "heal" });
+        affected.push({ x: u.x, y: u.y });
+      }
+      if (a.splash) {
+        battle.units
+          .filter((u) => u.alive && u.team === "enemy" && manhattan(u, unit) === 1)
+          .forEach((e) => {
+            specialStrike(battle, unit, e, a.splash);
+            affected.push({ x: e.x, y: e.y });
+          });
+      }
+      break;
+    }
+    case "shield": {
+      for (const u of battle.units.filter((z) => z.alive && z.team === "ally")) {
+        u.guard = 0.4;
+        const before = u.curHP;
+        u.curHP = Math.min(u.maxHP, u.curHP + Math.round((a.power || 0.15) * u.maxHP));
+        if (u.curHP > before) battle.floaters.push({ x: u.x, y: u.y, text: `+${u.curHP - before}`, kind: "heal" });
+        affected.push({ x: u.x, y: u.y });
+      }
+      break;
+    }
+    case "rally": {
+      for (const u of battle.units.filter((z) => z.alive && z.team === "ally")) {
+        u.buffs = { atk: a.power || 6, turns: 2 };
+        affected.push({ x: u.x, y: u.y });
+      }
+      break;
+    }
+    case "dash": {
+      const canDash =
+        aim &&
+        Math.max(Math.abs(aim.x - unit.x), Math.abs(aim.y - unit.y)) <= (a.range || 4) &&
+        battle.grid.tiles[aim.y][aim.x] !== "wall" &&
+        !battle.units.some((u) => u.alive && u.x === aim.x && u.y === aim.y);
+      if (canDash) {
+        unit.x = aim.x;
+        unit.y = aim.y;
+      }
+      affected.push({ x: unit.x, y: unit.y });
+      const adj = battle.units
+        .filter((u) => u.alive && u.team !== unit.team && manhattan(u, unit) === 1)
+        .sort((p, q) => q.curHP - p.curHP);
+      if (adj[0]) {
+        specialStrike(battle, unit, adj[0], a.power, { pierce: a.pierce || 0 });
+        affected.push({ x: adj[0].x, y: adj[0].y });
+      }
+      break;
+    }
+    case "reflect": {
+      unit.reflectPending = true;
+      const before = unit.curHP;
+      unit.curHP = Math.min(unit.maxHP, unit.curHP + Math.round((a.power || 0.2) * unit.maxHP));
+      if (unit.curHP > before) battle.floaters.push({ x: unit.x, y: unit.y, text: `+${unit.curHP - before}`, kind: "heal" });
+      affected.push({ x: unit.x, y: unit.y });
+      break;
+    }
+    default:
+      return null;
+  }
+
+  unit.charge = 0;
+  unit.acted = true;
+  battle.log.push(`✨✨ ${unit.name} usou ${a.name}!`);
+  updateOutcome(battle);
+  return { name: a.name, banner: a.banner, fx: a.fx, kind: a.kind, from, aim: aim || from, affected };
 }

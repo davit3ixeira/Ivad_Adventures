@@ -86,9 +86,18 @@ export function heroSheet(view) {
         <div class="stat-box"><b>${s.rng}</b><span>RNG</span></div>
       </div>
       <div class="skill-line">
-        <b>${def.skill.name}</b>
+        <b>Passiva · ${def.skill.name}</b>
         <p class="dim" style="font-size:.88rem; margin-top:2px">${def.skill.text}</p>
       </div>
+      ${
+        def.active
+          ? `<div class="skill-line">
+               <b style="color:var(--gold)">✨ Especial · ${def.active.name}</b>
+               <p class="dim" style="font-size:.88rem; margin-top:2px">${def.active.text}</p>
+               <p class="muted" style="font-size:.76rem; margin-top:3px">Carrega em ${def.active.charge} ações.</p>
+             </div>`
+          : ""
+      }
       ${
         view.level != null
           ? `<div class="muted" style="font-size:.82rem; margin-top:10px">Nível ${view.level} · ${

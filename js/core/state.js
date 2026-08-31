@@ -12,7 +12,7 @@ import { HEROES, heroStats, xpForNext, LEVEL_CAP } from "../data/heroes.js";
 
 const SAVE_VERSION = 1;
 const STARTING_SEMENTES = 100;
-const STARTER_HERO = "ivad";
+const STARTER_HERO = "davi"; // o jovem da Terra; Ivad (forma desperta) vem pela Invocação
 
 let _seq = 0;
 const newUid = () => `h${Date.now().toString(36)}${(_seq++).toString(36)}`;

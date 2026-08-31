@@ -65,6 +65,11 @@ Só a **Live Server** é obrigatória. As outras são conforto de desenvolviment
    - ⚔️ Batalha · ☠️ Elite · 🔱 Chefe · ❓ Evento · 🛒 Loja · ⛺ Descanso
 4. **Batalha tática** — grade 8×6, terrenos (magma, floresta, rocha, ruínas),
    **triângulo de afinidades** 🔴→🟢→🔵→🔴 (±30%), ataque duplo com +5 de SPD.
+   - **Atacar é em 1 toque:** toque no herói → toque no inimigo com ⚔ (ele anda
+     até a melhor casa e bate). Toque numa casa azul = só mover (dá pra *Voltar*).
+   - **Especial ✨** — cada herói tem um golpe único (Soco Nuclear, KetchouEtchou!,
+     Mãos de Luz, Carapaça Suprema…). Carrega a cada golpe dado/recebido; quando
+     pronto, botão dourado na barra → mira → **banner + efeito na tela**.
 5. A cada vitória, escolha **1 de 3 Cartas de Mácula** (buffs da run).
    HP **não** regenera entre batalhas — só em ⛺.
 6. Derrote o chefe do capítulo para liberar o próximo.
@@ -97,7 +102,7 @@ Ivad_Adventures/
     │   ├── storage.js      #   wrapper de localStorage versionado
     │   └── state.js        #   estado global: meta (permanente) + run (atual)
     ├── data/               # conteúdo puro (dados, sem lógica)
-    │   ├── heroes.js       #   11 heróis invocáveis + escala de atributos
+    │   ├── heroes.js       #   15 heróis: passiva + Especial ativo (✨) + escala
     │   ├── enemies.js      #   tropa, Irmãos Demônios, chefes + escala
     │   ├── chapters.js     #   os 4 capítulos da campanha
     │   ├── upgrades.js     #   Cartas de Mácula (buffs temporários da run)

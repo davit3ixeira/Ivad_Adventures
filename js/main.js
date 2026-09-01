@@ -15,6 +15,7 @@ import { renderMap } from "./ui/map.js";
 import { renderBattle } from "./ui/battle.js";
 import { renderEvent, renderShop, renderRest } from "./ui/sites.js";
 import { renderReward } from "./ui/reward.js";
+import { renderAdmin } from "./ui/admin.js";
 
 state.init();
 
@@ -27,6 +28,7 @@ router.register("event", renderEvent);
 router.register("shop", renderShop);
 router.register("rest", renderRest);
 router.register("reward", renderReward);
+router.register("admin", renderAdmin);
 
 /* ---------------------------------------------------------- topbar / wallet */
 const topbar = document.getElementById("topbar");

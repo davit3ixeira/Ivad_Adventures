@@ -294,4 +294,31 @@ export const state = {
     this.run = null;
     this.persist();
   },
+
+  // ---------------------------------------------------- ADM (painel de admin)
+  /** Grava campos arbitrários em meta (usado só pelo Painel ADM). */
+  adminPatchMeta(patch) {
+    Object.assign(this.meta, patch);
+    this.persist();
+    bus.emit("wallet:changed");
+    bus.emit("roster:changed");
+  },
+
+  /** Grava campos arbitrários na run atual. */
+  adminPatchRun(patch) {
+    if (!this.run) return;
+    Object.assign(this.run, patch);
+    this.persist();
+    bus.emit("run:changed");
+  },
+
+  /** Define o nível de um herói diretamente (ADM). */
+  adminSetLevel(uid, level) {
+    const entry = this.getEntry(uid);
+    if (!entry) return;
+    entry.level = Math.max(1, Math.min(LEVEL_CAP, Math.round(level) || 1));
+    entry.xp = 0;
+    this.persist();
+    bus.emit("roster:changed");
+  },
 };

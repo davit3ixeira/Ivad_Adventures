@@ -36,7 +36,7 @@ export function renderMenu(mount) {
           }
           <button class="btn" data-nav="gacha">💠 Portal de Invocação</button>
           <button class="btn" data-nav="roster">🗡️ Coleção &amp; Esquadrão</button>
-          <button class="btn btn--ghost btn--sm" data-act="adm">🛠 ADM — Fragmentos</button>
+          <button class="btn btn--ghost btn--sm" data-nav="admin">🛠 Painel ADM</button>
           <button class="btn btn--ghost btn--sm" data-act="reset">Reiniciar tudo</button>
         </div>
       </div>
@@ -59,45 +59,7 @@ export function renderMenu(mount) {
   mount.querySelector('[data-act="new"]')?.addEventListener("click", () => openChapterSelect());
   mount.querySelector('[data-act="continue"]')?.addEventListener("click", () => router.go("map"));
   mount.querySelector('[data-act="abandon"]')?.addEventListener("click", () => confirmAbandon());
-  mount.querySelector('[data-act="adm"]')?.addEventListener("click", () => openAdmPanel());
   mount.querySelector('[data-act="reset"]')?.addEventListener("click", () => confirmReset());
-}
-
-function openAdmPanel() {
-  const amounts = [10, 50, 100, 500];
-  const { box, close } = modal(`
-    <h2 style="margin-bottom:4px">🛠 Painel ADM</h2>
-    <p class="muted" style="margin-bottom:14px" id="adm-bal">Fragmentos Universais: <b>${state.meta.frag} 💠</b></p>
-    <div class="stack" style="--g:8px">
-      <div class="row" style="gap:8px; flex-wrap:wrap">
-        ${amounts.map((n) => `<button class="btn btn--sm" data-add="${n}">＋${n} 💠</button>`).join("")}
-      </div>
-      <div class="row" style="gap:8px; flex-wrap:wrap">
-        ${amounts.map((n) => `<button class="btn btn--ghost btn--sm" data-add="${-n}">−${n} 💠</button>`).join("")}
-      </div>
-      <button class="btn btn--ghost btn--sm" data-zero>Zerar Fragmentos</button>
-    </div>
-    <div class="row" style="margin-top:16px">
-      <button class="btn btn--primary" data-close>Fechar</button>
-    </div>
-  `);
-  const refresh = () => {
-    box.querySelector("#adm-bal").innerHTML = `Fragmentos Universais: <b>${state.meta.frag} 💠</b>`;
-  };
-  box.querySelectorAll("[data-add]").forEach((b) =>
-    b.addEventListener("click", () => {
-      state.addFrag(Number(b.dataset.add));
-      refresh();
-    })
-  );
-  box.querySelector("[data-zero]").addEventListener("click", () => {
-    state.addFrag(-state.meta.frag);
-    refresh();
-  });
-  box.querySelector("[data-close]").addEventListener("click", () => {
-    close();
-    router.go("menu"); // re-renderiza o painel lateral com o novo saldo
-  });
 }
 
 export function openChapterSelect() {

@@ -117,6 +117,64 @@ export const UPGRADES = [
     text: "Heróis do tipo Mana ganham +1 de alcance e +5 de Ataque.",
     mod: { rangeBonus: 1, atkBonus: 5, affin: "mana" },
   },
+
+  // ─────────── Cartas das novas eras ───────────
+  {
+    id: "absorcao_tordep",
+    name: "Absorção de Tordep",
+    emoji: "🕳️",
+    text: "O esquadrão come o que fere: regenera 16% do dano causado como HP.",
+    mod: { lifesteal: 0.16 },
+  },
+  {
+    id: "lei_de_odranoel",
+    name: "Lei de Odranoel",
+    emoji: "⚖️",
+    text: "Equilíbrio imposto: −12% de dano sofrido e +3 de Ataque.",
+    mod: { dmgReduction: 0.12, atkBonus: 3 },
+  },
+  {
+    id: "onda_do_som",
+    name: "Onda do Deus do Som",
+    emoji: "🔊",
+    text: "+1 de alcance e +3 de Velocidade para o esquadrão.",
+    mod: { rangeBonus: 1, spdBonus: 3 },
+  },
+  {
+    id: "bencao_prismatica",
+    name: "Bênção Prismática",
+    emoji: "🔮",
+    text: "Cura 20% do HP máximo no início de cada batalha e +8 de HP máximo.",
+    mod: { healStart: 0.2, maxHpBonus: 8 },
+  },
+  {
+    id: "furia_reversa",
+    name: "Fúria Reversa",
+    emoji: "🩸",
+    text: "Com HP abaixo de 50%, +24% de dano causado.",
+    mod: { wrathBonus: 0.24 },
+  },
+  {
+    id: "passe_do_torneio",
+    name: "Passe do Torneio",
+    emoji: "🏟️",
+    text: "+4 de Ataque e +3 de Velocidade para todos os heróis.",
+    mod: { atkBonus: 4, spdBonus: 3 },
+  },
+  {
+    id: "veredito_associacao",
+    name: "Veredito da Associação",
+    emoji: "🗂️",
+    text: "Cada inimigo derrotado cura 8 de HP a todo o esquadrão.",
+    mod: { execHeal: 8 },
+  },
+  {
+    id: "soco_cosmico",
+    name: "Soco Cósmico",
+    emoji: "💥",
+    text: "+26% de dano causado por todo o esquadrão. O fim de tudo em cada punho.",
+    mod: { dmgUp: 0.26 },
+  },
 ];
 
 export const UPGRADES_BY_ID = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));

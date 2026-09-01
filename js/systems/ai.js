@@ -6,7 +6,19 @@
 import { reachable, pathTo } from "./pathfind.js";
 import { affinityMultiplier } from "./affinity.js";
 
-const BOSS_BASE = { boss_taki: "kiter", boss_korlok: "rusher", boss_king: "rusher" };
+const BOSS_BASE = {
+  boss_taki: "kiter",
+  boss_korlok: "rusher",
+  boss_king: "rusher",
+  boss_poderoso: "guard",
+  boss_alkor: "kiter",
+  boss_tordep: "rusher",
+  boss_ordep: "kiter",
+  boss_reverso: "rusher",
+  boss_mast: "kiter",
+  boss_xingzang: "rusher",
+  boss_cosmic: "rusher",
+};
 
 const md = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 

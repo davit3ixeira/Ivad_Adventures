@@ -80,14 +80,13 @@ export function renderMap(mount, params = {}) {
 
       <div class="run-hud" id="run-hud"></div>
 
-      <div class="map-scroll">
-        <div class="map-board" id="map-board" style="width:${run.map.width}px; height:${run.map.height}px">
-          <svg class="map-edges" viewBox="0 0 ${run.map.width} ${run.map.height}">${paths}</svg>
+      <div class="map-scroll" data-ch="${chapter.bg || ""}">
+        <div class="map-viewport" id="map-viewport">
+          <div class="map-board" id="map-board" style="width:${run.map.width}px; height:${run.map.height}px">
+            <svg class="map-edges" viewBox="0 0 ${run.map.width} ${run.map.height}">${paths}</svg>
+          </div>
         </div>
       </div>
-      <p class="muted" style="text-align:center; margin-top:12px; font-size:.85rem">
-        Escolha um caminho iluminado. Cada passo é definitivo.
-      </p>
     </section>
   `);
   mount.appendChild(el);
@@ -119,8 +118,28 @@ export function renderMap(mount, params = {}) {
     board.appendChild(node);
   }
 
+  // encaixa o mapa inteiro na largura da tela — sem rolagem própria do mapa
+  const viewport = el.querySelector("#map-viewport");
+  const fitMap = () => {
+    if (!document.body.contains(el)) return;
+    const avail = viewport.clientWidth;
+    if (avail <= 0) return;
+    const scale = Math.min(1, avail / run.map.width);
+    board.style.transform = scale < 1 ? `scale(${scale})` : "none";
+    board.style.marginLeft = scale < 1 ? "0" : "auto";
+    board.style.marginRight = scale < 1 ? "0" : "auto";
+    viewport.style.height = `${Math.ceil(run.map.height * scale)}px`;
+  };
+  fitMap();
+  requestAnimationFrame(fitMap);
+  const onResize = () => fitMap();
+  window.addEventListener("resize", onResize);
+
   const off = bus.on("run:changed", () => {
-    if (!document.body.contains(el)) return off();
+    if (!document.body.contains(el)) {
+      window.removeEventListener("resize", onResize);
+      return off();
+    }
     renderHud(el.querySelector("#run-hud"));
   });
 }

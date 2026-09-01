@@ -68,7 +68,7 @@ export function renderBattle(mount, params) {
   mount.appendChild(
     h(`
     <section class="battle">
-      <div class="battle__stage" id="stage">
+      <div class="battle__stage" id="stage" data-ch="${battle.chapter?.bg || ""}">
         <div class="battle__banner phase-player" id="banner"></div>
         <div class="grid-wrap"><div class="grid" id="grid"></div></div>
         <div class="battle__actions" id="actions"></div>

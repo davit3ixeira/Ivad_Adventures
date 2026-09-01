@@ -14,14 +14,27 @@
   position: relative;
   border-radius: var(--r-lg);
   padding: 16px;
+  /* tema por capítulo — sobrescrito em .battle__stage[data-ch="…"] */
+  --arena-1: rgba(180, 20, 45, 0.26);
+  --arena-2: rgba(90, 45, 150, 0.18);
   background:
-    radial-gradient(520px 320px at 50% -12%, rgba(180, 20, 45, 0.26), transparent 66%),
-    radial-gradient(400px 400px at 50% 120%, rgba(90, 45, 150, 0.18), transparent 62%),
+    radial-gradient(560px 340px at 50% -12%, var(--arena-1), transparent 66%),
+    radial-gradient(440px 440px at 50% 120%, var(--arena-2), transparent 62%),
     linear-gradient(180deg, var(--bg-1), var(--bg-0));
   border: 1px solid var(--hair);
   box-shadow: var(--shadow), inset 0 0 70px rgba(0, 0, 0, 0.45);
   overflow: hidden;
 }
+.battle__stage[data-ch="haluho"]       { --arena-1: rgba(210, 32, 52, 0.30); --arena-2: rgba(130, 34, 18, 0.24); }
+.battle__stage[data-ch="dojo"]         { --arena-1: rgba(64, 184, 116, 0.22); --arena-2: rgba(40, 96, 128, 0.24); }
+.battle__stage[data-ch="alfa"]         { --arena-1: rgba(92, 202, 255, 0.24); --arena-2: rgba(150, 112, 255, 0.24); }
+.battle__stage[data-ch="escolhido"]    { --arena-1: rgba(150, 62, 222, 0.26); --arena-2: rgba(18, 8, 30, 0.5); }
+.battle__stage[data-ch="tordep"]       { --arena-1: rgba(96, 44, 168, 0.28); --arena-2: rgba(0, 0, 0, 0.55); }
+.battle__stage[data-ch="deuses"]       { --arena-1: rgba(255, 212, 132, 0.22); --arena-2: rgba(122, 142, 202, 0.2); }
+.battle__stage[data-ch="reverso"]      { --arena-1: rgba(255, 62, 92, 0.24); --arena-2: rgba(44, 10, 22, 0.4); }
+.battle__stage[data-ch="torneio"]      { --arena-1: rgba(255, 182, 84, 0.26); --arena-2: rgba(182, 32, 62, 0.2); }
+.battle__stage[data-ch="associacao"]   { --arena-1: rgba(124, 154, 194, 0.22); --arena-2: rgba(52, 62, 84, 0.3); }
+.battle__stage[data-ch="destruidores"] { --arena-1: rgba(255, 92, 202, 0.24); --arena-2: rgba(255, 255, 255, 0.12); }
 
 .battle__banner {
   text-align: center;

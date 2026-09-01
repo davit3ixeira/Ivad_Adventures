@@ -228,4 +228,203 @@ export const EVENTS = [
       },
     ],
   },
+
+  {
+    id: "cela_tordep",
+    scene: "⛓️",
+    title: "A Cela que Sussurra",
+    text:
+      "Uma parede da prisão respira. De dentro, uma voz oleosa: — \"Me solte um dedo. Só um. Eu te devolvo em poder o dobro do que você perde.\"",
+    choices: [
+      {
+        label: "Encostar a mão na parede",
+        detail: "Relíquia poderosa — mas o esquadrão perde HP máx.",
+        outcome: {
+          text: "Algo entra pelos seus dedos e não sai mais. Vocês estão mais fortes, e um pouco menos vocês.",
+          effects: [{ t: "relic" }, { t: "maxHp", n: -10 }],
+        },
+      },
+      {
+        label: "Reforçar as correntes com Gemas",
+        detail: "−22 💎, +HP máx permanente.",
+        cost: { gemas: 22 },
+        outcome: {
+          text: "Vocês fundem as Gemas nas algemas divinas. A voz range os dentes e cala.",
+          effects: [{ t: "maxHp", n: 14 }],
+        },
+      },
+      {
+        label: "Ignorar e passar rápido",
+        detail: "Não olhe pra trás.",
+        outcome: {
+          text: "A voz ri baixinho até vocês saírem do alcance. Ninguém dorme bem essa noite.",
+          effects: [{ t: "frag", n: 2 }],
+        },
+      },
+    ],
+  },
+
+  {
+    id: "trono_vago",
+    scene: "⚖️",
+    title: "O Trono Momentaneamente Vazio",
+    text:
+      "No meio da guerra civil, a sala do trono está sem ninguém. A cadeira de Mácula pulsa com poder de quem já sentou nela. Poderoso cruza os braços: — \"Isso é dos deuses. Não da gente.\"",
+    choices: [
+      {
+        label: "Sentar por três segundos",
+        detail: "Grande ganho ou grande perda — o trono julga.",
+        outcome: {
+          text: "O universo inteiro te encara por um instante. Depois te cospe de volta na cadeira comum.",
+          effects: [{ t: "gamble" }],
+        },
+      },
+      {
+        label: "Recolher o que caiu no chão",
+        detail: "Fragmentos e Gemas espalhados pela briga.",
+        outcome: {
+          text: "Emissários largaram meio arsenal fugindo. Vocês catam sem culpa.",
+          effects: [{ t: "frag", n: 5 }, { t: "gemas", n: 16 }],
+        },
+      },
+      {
+        label: "Sair rápido dessa sala",
+        detail: "Nada bom acontece aqui.",
+        outcome: {
+          text: "Vocês fecham a porta. Do lado de dentro, o trono continua esperando o dono.",
+          effects: [{ t: "healPct", n: 0.15 }],
+        },
+      },
+    ],
+  },
+
+  {
+    id: "espelho_reverso",
+    scene: "🪞",
+    title: "O Espelho de Centris",
+    text:
+      "Um espelho alto fica de pé sozinho no campo. O reflexo do esquadrão está lá — só que sorrindo quando ninguém sorriu.",
+    choices: [
+      {
+        label: "Atravessar o espelho",
+        detail: "Cura total e reergue os caídos — ou uma armadilha do clone.",
+        outcome: {
+          text: "Do outro lado, um instante de descanso roubado da vida que Ivad Reverso queria. Vocês voltam inteiros.",
+          effects: [{ t: "reviveAll" }],
+        },
+      },
+      {
+        label: "Quebrar o espelho",
+        detail: "Sete anos de azar — ou uma carta de Mácula presa no vidro.",
+        outcome: {
+          text: "Os cacos caem e um deles brilha diferente. Xingzang teria dito algo sobre isso. Xingzang não está aqui.",
+          effects: [{ t: "damagePct", n: 0.12 }, { t: "upgrade" }],
+        },
+      },
+    ],
+  },
+
+  {
+    id: "chave_torneio",
+    scene: "🏟️",
+    title: "A Chave do Torneio",
+    text:
+      "Um funcionário mascarado do Mast oferece um envelope: — \"A chave da próxima rodada. Custa. Sempre custa.\"",
+    choices: [
+      {
+        label: "Comprar a chave (25 💎)",
+        detail: "Escolhe uma carta de Mácula + descanso curto.",
+        cost: { gemas: 25 },
+        outcome: {
+          text: "O envelope traz um mapa dos próximos oponentes. Conhecimento é vantagem.",
+          effects: [{ t: "healPct", n: 0.2 }, { t: "upgrade" }],
+        },
+      },
+      {
+        label: "Roubar o envelope",
+        detail: "Ganha, mas a organização não gosta.",
+        outcome: {
+          text: "Joe Pistoleiro distrai, Kão-Woji pega. Alguém vai cobrar isso depois.",
+          effects: [{ t: "relic" }, { t: "damagePct", n: 0.15 }],
+        },
+      },
+      {
+        label: "Recusar e lutar limpo",
+        detail: "Sem vantagem, sem dívida.",
+        outcome: {
+          text: "— \"Corajosos\", diz o mascarado. \"Corajosos costumam perder cedo.\"",
+          effects: [{ t: "frag", n: 3 }],
+        },
+      },
+    ],
+  },
+
+  {
+    id: "planilha_da_associacao",
+    scene: "🗂️",
+    title: "A Planilha",
+    text:
+      "Um terminal da Associação fica aberto. Na tela, uma lista de mundos com uma coluna final: MANTER / APAGAR. O cursor pisca sobre o nome do universo de vocês.",
+    choices: [
+      {
+        label: "Editar a própria linha para MANTER",
+        detail: "Relíquia + segurança — mas alarme dispara.",
+        outcome: {
+          text: "Vocês mudam o veredito. Sirenes. Agora eles sabem que vocês sabem.",
+          effects: [{ t: "relic" }, { t: "damagePct", n: 0.16 }],
+        },
+      },
+      {
+        label: "Baixar a planilha inteira",
+        detail: "Gemas — informação vale dinheiro.",
+        outcome: {
+          text: "Bob copia tudo antes que trave. — \"Isso aqui é... muita gente na coluna errada.\"",
+          effects: [{ t: "gemas", n: 26 }],
+        },
+      },
+      {
+        label: "Apagar a planilha",
+        detail: "Ninguém decide sozinho quem vive. +HP máx.",
+        outcome: {
+          text: "Delete. O terminal apita e morre. Não resolve nada — mas parece certo.",
+          effects: [{ t: "maxHp", n: 12 }],
+        },
+      },
+    ],
+  },
+
+  {
+    id: "borda_do_tudo",
+    scene: "💥",
+    title: "A Borda de Tudo",
+    text:
+      "O chão termina. Depois dele, não há 'depois' — só a costura branca onde o multiverso acaba. Protetores e Destruidores lutam ao longe como faíscas. Ivad olha demais para a borda.",
+    choices: [
+      {
+        label: "Puxar Ivad de volta e descansar",
+        detail: "Cura considerável para o esquadrão.",
+        outcome: {
+          text: "João segura o ombro dele. — \"Ainda não. Não hoje.\" O grupo respira.",
+          effects: [{ t: "healPct", n: 0.35 }],
+        },
+      },
+      {
+        label: "Recolher entropia da costura",
+        detail: "Grande poder — grande risco.",
+        outcome: {
+          text: "Vocês raspam um pouco do fim-de-tudo e guardam num pote. Provavelmente péssima ideia.",
+          effects: [{ t: "gamble" }],
+        },
+      },
+      {
+        label: "Selar a fenda com tudo que têm",
+        detail: "−20 💎, relíquia dos Protetores.",
+        cost: { gemas: 20 },
+        outcome: {
+          text: "Um Protetor renegado ajuda em silêncio e some. Deixa uma peça para trás.",
+          effects: [{ t: "relic" }],
+        },
+      },
+    ],
+  },
 ];

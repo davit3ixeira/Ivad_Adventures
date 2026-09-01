@@ -23,8 +23,9 @@ export function renderMenu(mount) {
         <div class="menu__tag">Selo Primordial</div>
         <p class="menu__desc">
           O céu rubro de Haluho racha sobre os mundos. Invoque os heróis da saga com
-          Fragmentos Universais, forme seu esquadrão e enfrente os Irmãos Demônios,
-          Korlok e o próprio Rei Demônio numa campanha tática roguelike.
+          Fragmentos Universais, forme seu esquadrão e atravesse 10 capítulos —
+          dos Irmãos Demônios e da Dimensão Alfa até Tordep, a guerra dos deuses,
+          o Torneio do Mast e os Destruidores de Multiverso.
         </p>
         <div class="menu__actions">
           ${

@@ -73,6 +73,59 @@ export const RELICS = [
     text: "+8 de Ataque, mas −2 de Defesa. O caos cobra seu preço.",
     mod: { atkBonus: 8, defBonus: -2 },
   },
+
+  // ─────────── Relíquias das novas eras (Cap. V–X) ───────────
+  {
+    id: "algema_tordep",
+    name: "Algema de Tordep",
+    emoji: "⛓️",
+    text: "O esquadrão passa a comer o que fere: regenera 10% do dano causado, +4 de Ataque.",
+    mod: { lifesteal: 0.1, atkBonus: 4 },
+  },
+  {
+    id: "coroa_ordep",
+    name: "Coroa Rachada de Ordep",
+    emoji: "👑",
+    text: "Com HP abaixo de 50%, +22% de dano — mas −3 de Defesa sempre. Ambição custa.",
+    mod: { wrathBonus: 0.22, defBonus: -3 },
+  },
+  {
+    id: "diapasao_som",
+    name: "Diapasão do Deus do Som",
+    emoji: "🔊",
+    text: "Heróis do tipo Mana ganham +1 de alcance e +4 de Ataque.",
+    mod: { rangeBonus: 1, atkBonus: 4, affin: "mana" },
+  },
+  {
+    id: "mascara_mast",
+    name: "Máscara de Mast",
+    emoji: "🎭",
+    text: "Sem regras: +14% de dano causado e +3 de Velocidade.",
+    mod: { dmgUp: 0.14, spdBonus: 3 },
+  },
+  {
+    id: "planilha_associacao",
+    name: "Planilha da Associação",
+    emoji: "🗂️",
+    text: "Cada inimigo derrotado cura 9 de HP a todo o esquadrão. Friamente eficiente.",
+    mod: { execHeal: 9 },
+  },
+  {
+    id: "nucleo_platina",
+    name: "Núcleo de Platina",
+    emoji: "⚪",
+    text: "Reduz em 14% todo o dano sofrido e +10 de HP máximo.",
+    mod: { dmgReduction: 0.14, maxHpBonus: 10 },
+  },
+  {
+    id: "fagulha_cosmica",
+    name: "Fagulha Cósmica",
+    emoji: "💥",
+    text: "+10% de dano causado e +3 Fragmentos Universais a cada batalha vencida.",
+    mod: { dmgUp: 0.1 },
+    trigger: "bountyOnWin",
+    triggerValue: 3,
+  },
 ];
 
 export const RELICS_BY_ID = Object.fromEntries(RELICS.map((r) => [r.id, r]));

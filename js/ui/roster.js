@@ -226,6 +226,20 @@ function openHeroSheet(uid) {
           ${entry.level >= LEVEL_CAP ? "Nível máximo" : `⬆ Subir para Nv ${entry.level + 1}`}
         </button>
       </div>
+      ${
+        HEROES[entry.id].forms?.length
+          ? `<div class="skill-line">
+              <b style="color:var(--violet)">🔥 Transformações em combate</b>
+              <div class="muted" style="font-size:.78rem;margin:2px 0 6px">A barra 🔥 enche +1 por turno (nada no 1º). A forma mais forte gasta tudo.</div>
+              ${HEROES[entry.id].forms
+                .map(
+                  (f) => `<div class="form-row"><span class="form-row__cost">${"🔥".repeat(f.cost)}</span>
+                    <b>${f.emoji} ${f.name}</b><small>${f.active?.text || ""}</small></div>`
+                )
+                .join("")}
+            </div>`
+          : ""
+      }
       <div class="row" style="margin-top:16px">
         <button class="btn ${inSquad ? "btn--ghost" : "btn--primary"}" data-toggle>
           ${inSquad ? "Remover do esquadrão" : "Adicionar ao esquadrão"}

@@ -28,10 +28,30 @@ const ENEMY_TRAITS = {
   colosso_projecao: { bulwark: 0.25, cleave: 0.35 }, // figura gigante de energia
   sentinela_alfa: { omniCounter: true }, // guardião de outra realidade
   corrompido_macula: { openerBonus: 0.2 }, // ambição cobra o preço
+  // ── novos comandantes / elites (Cap. III–X) ─────────────
+  guardiao_alfa: { bulwark: 0.25, omniCounter: true },
+  sombra_faminta: { lifesteal: 0.35 },
+  carcereiro_deus: { double: true, alwaysCounter: true },
+  general_civil: { double: true, cleave: 0.4 },
+  fragmento_ivad: { openerBonus: 0.2 },
+  sombra_de_ivad: { double: true, openerBonus: 0.15 },
+  finalista_torneio: { double: true, bulwark: 0.2 },
+  executor_equilibrio: { openerBonus: 0.2 },
+  diretor_associacao: { omniCounter: true, bulwark: 0.25 },
+  destruidor_menor: { ignoreWheel: true, double: true, cleave: 0.4 },
+  protetor_multiverso: { bulwark: 0.3, omniCounter: true },
   // ── chefes ──────────────────────────────────────────────
   takimatida_sombrio: { double: true, omniCounter: true, cleave: 0.4 },
   korlok: { rage: 3, cleave: 0.55 },
   haluhaluhu: { ignoreWheel: true, alwaysCounter: true, rage: 3, cleave: 0.6, bulwark: 0.15 },
+  poderoso_rival: { bulwark: 0.25, omniCounter: true, openerBonus: 0.2 },
+  alkor_guardiao: { double: true, omniCounter: true, cleave: 0.35 },
+  tordep: { lifesteal: 0.4, rage: 3, cleave: 0.4 },
+  ordep_odranoel: { ignoreWheel: true, bulwark: 0.15, alwaysCounter: true, rage: 3, cleave: 0.55 },
+  ivad_reverso: { double: true, alwaysCounter: true, lifesteal: 0.35, cleave: 0.45 },
+  mast: { double: true, omniCounter: true, rage: 3, cleave: 0.5 },
+  xingzang_associacao: { double: true, alwaysCounter: true, lifesteal: 0.35, cleave: 0.45 },
+  cosmic_ivad: { ignoreWheel: true, bulwark: 0.15, double: true, alwaysCounter: true, rage: 4, cleave: 0.6 },
 };
 
 // --------------------------------------------------------------- construção
@@ -433,9 +453,10 @@ function strike(battle, src, tgt, ctx) {
     `${src.name} → ${tgt.name}: ${dmg} de dano${mult > 1 ? " (vantagem!)" : mult < 1 ? " (resistido)" : ""}.`
   );
 
-  // roubo de vida (aura + Harmonia de Xing Zang)
+  // roubo de vida (aura + Harmonia de Xing Zang + traço de inimigo "absorve")
   let ls = srcAura.lifesteal || 0;
   if (src.skill?.type === "naturePunch") ls += src.skill.pct || 0;
+  if (src.traits?.lifesteal) ls += src.traits.lifesteal;
   if (ls && src.alive) {
     const heal = Math.round(dmg * ls);
     if (heal > 0) {

@@ -266,6 +266,18 @@
 .skill-line { padding: 12px 0; border-top: 1px solid var(--line-soft); }
 .skill-line > b { font-family: var(--font-display); color: var(--rubro); font-size: 0.92rem; }
 
+.form-row {
+  display: grid; grid-template-columns: auto 1fr; gap: 2px 10px;
+  align-items: baseline;
+  padding: 7px 10px; margin-top: 6px;
+  border-radius: var(--r-sm);
+  background: rgba(185, 139, 255, 0.07);
+  border: 1px solid color-mix(in srgb, var(--violet) 22%, transparent);
+}
+.form-row__cost { grid-row: span 2; font-size: 0.72rem; letter-spacing: -2px; align-self: center; }
+.form-row b { font-family: var(--font-display); font-size: 0.86rem; color: var(--text); }
+.form-row small { grid-column: 2; color: var(--text-dim); font-size: 0.76rem; line-height: 1.4; }
+
 /* equipamentos */
 .equip-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
 .equip-slot {
@@ -334,17 +346,49 @@
 
 .map-scroll {
   position: relative;
-  overflow-x: auto;
+  overflow: hidden; /* o mapa se encaixa na largura — sem rolagem própria */
   padding: 24px 8px 32px;
   border-radius: var(--r-lg);
+  /* tema por capítulo — sobrescrito em .map-scroll[data-ch="…"] */
+  --atmo-1: rgba(200, 30, 50, 0.26);
+  --atmo-2: rgba(120, 30, 20, 0.2);
+  --atmo-edge: var(--gold);
   background:
-    radial-gradient(680px 420px at 82% -4%, rgba(180, 20, 45, 0.2), transparent 62%),
-    radial-gradient(500px 500px at 15% 108%, rgba(90, 45, 150, 0.18), transparent 62%),
+    radial-gradient(680px 420px at 82% -4%, var(--atmo-1), transparent 62%),
+    radial-gradient(560px 520px at 12% 110%, var(--atmo-2), transparent 62%),
     linear-gradient(180deg, var(--bg-1), var(--bg-0));
   border: 1px solid var(--hair);
   box-shadow: var(--shadow), inset 0 0 60px rgba(0, 0, 0, 0.4);
 }
-.map-board { position: relative; margin: 0 auto; }
+.map-viewport { position: relative; width: 100%; overflow: hidden; }
+.map-board { position: relative; z-index: 1; margin: 0 auto; transform-origin: top left; }
+.map-board::before { /* brilho atmosférico do capítulo, atrás dos nós */
+  content: ""; position: absolute; inset: -18% -8%;
+  z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(closest-side, color-mix(in srgb, var(--atmo-edge, var(--gold)) 16%, transparent), transparent 72%),
+    radial-gradient(60% 40% at 50% 8%, var(--atmo-1), transparent 70%);
+  animation: atmo-drift 24s ease-in-out infinite alternate;
+}
+@keyframes atmo-drift {
+  from { transform: translate(-4%, -2%) scale(1); opacity: 0.75; }
+  to   { transform: translate(5%, 4%) scale(1.18); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .map-board::before { animation: none; } }
+
+/* ─── temas de capítulo (fundo do mapa) ─── */
+.map-scroll[data-ch="haluho"]       { --atmo-1: rgba(210, 32, 52, 0.30); --atmo-2: rgba(130, 34, 18, 0.24); --atmo-edge: #ff6a4d; }
+.map-scroll[data-ch="dojo"]         { --atmo-1: rgba(64, 184, 116, 0.22); --atmo-2: rgba(40, 96, 128, 0.22); --atmo-edge: #7fe0a0; }
+.map-scroll[data-ch="alfa"]         { --atmo-1: rgba(92, 202, 255, 0.24); --atmo-2: rgba(150, 112, 255, 0.24); --atmo-edge: #7fd8ff; }
+.map-scroll[data-ch="escolhido"]    { --atmo-1: rgba(150, 62, 222, 0.26); --atmo-2: rgba(18, 8, 30, 0.55); --atmo-edge: #b98bff; }
+.map-scroll[data-ch="tordep"]       { --atmo-1: rgba(96, 44, 168, 0.26); --atmo-2: rgba(0, 0, 0, 0.6); --atmo-edge: #8a5cff; }
+.map-scroll[data-ch="deuses"]       { --atmo-1: rgba(255, 212, 132, 0.24); --atmo-2: rgba(122, 142, 202, 0.2); --atmo-edge: #ffd583; }
+.map-scroll[data-ch="reverso"]      { --atmo-1: rgba(255, 62, 92, 0.24); --atmo-2: rgba(44, 10, 22, 0.45); --atmo-edge: #ff5566; }
+.map-scroll[data-ch="torneio"]      { --atmo-1: rgba(255, 182, 84, 0.26); --atmo-2: rgba(182, 32, 62, 0.2); --atmo-edge: #ffbf66; }
+.map-scroll[data-ch="associacao"]   { --atmo-1: rgba(124, 154, 194, 0.22); --atmo-2: rgba(52, 62, 84, 0.3); --atmo-edge: #9db4d0; }
+.map-scroll[data-ch="destruidores"] { --atmo-1: rgba(255, 92, 202, 0.24); --atmo-2: rgba(255, 255, 255, 0.12); --atmo-edge: #ff6ad5; }
+
+.map-scroll[data-ch] .map-edges path.is-open { stroke: var(--atmo-edge); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--atmo-edge) 55%, transparent)); }
 .map-edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .map-edges path { stroke: rgba(255, 255, 255, 0.12); stroke-width: 2; fill: none; }
 .map-edges path.is-open {

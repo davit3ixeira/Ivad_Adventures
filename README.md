@@ -175,11 +175,3 @@ existe. **Nenhuma outra mudança é necessária.**
 | Cartas de upgrade e relíquias | `js/data/upgrades.js`, `js/data/relics.js` |
 
 ---
-
-## Lore
-
-Baseado em *As Aventuras de Ivad*: Terra, **Haluho** (planeta demoníaco de céu
-rubro), o **Dojo de Xing Zang**, o **Planeta Poder** e **Ariexiet** dos sóis
-gêmeos. Heróis como **Ivad**, **Takimatida**, **Xing Zang**, **Poderoso** e
-**KetchouEtchou** enfrentam os **Irmãos Demônios**, **Korlok** (o Olho do Caos),
-**O Escolhido** e o Rei Demônio **Haluhaluhu**.

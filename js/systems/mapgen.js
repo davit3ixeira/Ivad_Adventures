@@ -6,7 +6,7 @@
  * type ∈ start | battle | elite | event | shop | rest | boss
  */
 import { makeRng } from "../core/rng.js";
-import { getChapter } from "../data/chapters.js";
+import { resolveChapter } from "../data/ascension.js";
 
 export const NODE_META = {
   start: { icon: "✦", label: "Início" },
@@ -37,7 +37,7 @@ function pickType(r, row, totalRows) {
 }
 
 export function generateMap(chapterId, seed) {
-  const chapter = getChapter(chapterId);
+  const chapter = resolveChapter(chapterId);
   const r = makeRng(seed >>> 0);
   const ROWS = chapter.rows;
 

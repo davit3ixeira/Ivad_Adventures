@@ -20,6 +20,7 @@ import { UPGRADES } from "../data/upgrades.js";
 import { RELICS } from "../data/relics.js";
 import { EVENTS } from "../data/narrative.js";
 import { CHAPTERS } from "../data/chapters.js";
+import { resolveChapter } from "../data/ascension.js";
 import { addGemas, addRelic, addUpgrade, healSquad, reviveSquad, bumpMaxHP } from "../systems/run.js";
 
 let tab = "recursos";
@@ -132,6 +133,15 @@ function renderRecursos(body, paint) {
     </div>
 
     <div class="panel adm-panel">
+      <h3>🌌 Torre da Ascensão <b class="dim">(campanha ${m.unlockedChapter > CHAPTERS.length ? "completa" : "incompleta"})</b></h3>
+      <p class="muted" style="font-size:.8rem;margin-bottom:8px">Libera na tela do Santuário só depois do Capítulo 10 vencido (Capítulo liberado &gt; 10).</p>
+      <div class="row" style="gap:8px;margin-bottom:10px">
+        <button class="btn btn--sm" data-campaign-done>Marcar campanha completa (testar Torre)</button>
+      </div>
+      <div id="r-ascension"></div>
+    </div>
+
+    <div class="panel adm-panel">
       <h3>Estatísticas de meta</h3>
       <div id="r-runs"></div>
       <div id="r-pity"></div>
@@ -183,6 +193,15 @@ function renderRecursos(body, paint) {
   );
   body.querySelector("[data-all-ch]").addEventListener("click", () => { state.adminPatchMeta({ unlockedChapter: CHAPTERS.length }); paint(); });
   body.querySelector("[data-lock-ch]").addEventListener("click", () => { state.adminPatchMeta({ unlockedChapter: 1 }); paint(); });
+  body.querySelector("[data-campaign-done]").addEventListener("click", () => {
+    state.adminPatchMeta({ unlockedChapter: CHAPTERS.length + 1 });
+    toast("Campanha marcada como completa. Torre da Ascensão liberada.", "gold");
+    paint();
+  });
+
+  const asc = body.querySelector("#r-ascension");
+  asc.innerHTML = numberRow("Ascensão superada 🌌 ", m.ascensionBest || 0, null, { steps: [1, 5], max: 999 });
+  wireNumberRow(asc, () => state.meta.ascensionBest || 0, (v) => { state.adminPatchMeta({ ascensionBest: v }); paint(); }, { max: 999 });
   body.querySelector("[data-pity-max]").addEventListener("click", () => { state.adminPatchMeta({ pity: 69 }); toast("Próxima invocação garante 5★.", "gold"); paint(); });
 
   body.querySelector("[data-wipe-run]")?.addEventListener("click", () => {
@@ -335,10 +354,10 @@ function renderRun(body, paint) {
     body.innerHTML = `<div class="panel adm-panel"><p class="muted">Nenhuma run ativa. Comece uma jornada pelo Santuário.</p></div>`;
     return;
   }
-  const ch = CHAPTERS.find((c) => c.id === run.chapter);
+  const ch = resolveChapter(run.chapter);
   body.innerHTML = `
     <div class="panel adm-panel">
-      <h3>Run — ${ch ? ch.scene + " " + ch.name : "Capítulo " + run.chapter}</h3>
+      <h3>Run — ${ch.scene} ${ch.name}</h3>
       <div class="adm-kv">
         <span>Gemas</span><b>${run.gemas} 💎</b>
         <span>Batalhas vencidas</span><b>${run.battlesWon}</b>

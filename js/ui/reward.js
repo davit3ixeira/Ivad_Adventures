@@ -8,9 +8,10 @@
 import { state } from "../core/state.js";
 import { router } from "./router.js";
 import { modal } from "./toast.js";
-import { h } from "./components.js";
+import { h, chapterLabel } from "./components.js";
 import { clearNode, grantRandomUpgradeChoices, addUpgrade, endRunVictory } from "../systems/run.js";
-import { getChapter, CHAPTERS } from "../data/chapters.js";
+import { CHAPTERS } from "../data/chapters.js";
+import { resolveChapter } from "../data/ascension.js";
 import { EQUIPMENT, RANKS } from "../data/equipment.js";
 
 export function renderReward(mount, { nodeId, mode = "upgrade", outcome = null }) {
@@ -70,7 +71,7 @@ export function renderReward(mount, { nodeId, mode = "upgrade", outcome = null }
 
   const proceed = () => {
     if (isBoss) {
-      showOutro(getChapter(run.chapter));
+      showOutro(resolveChapter(run.chapter));
     } else {
       clearNode(nodeId);
       router.go("map");
@@ -96,7 +97,7 @@ export function renderReward(mount, { nodeId, mode = "upgrade", outcome = null }
 }
 
 function showOutro(chapter) {
-  const nextChapter = CHAPTERS.find((c) => c.id === chapter.id + 1);
+  const nextChapter = chapter.ascension ? null : CHAPTERS.find((c) => c.id === chapter.id + 1);
   let done = false;
   const finish = () => {
     if (done) return;
@@ -105,16 +106,20 @@ function showOutro(chapter) {
     router.go("menu");
   };
 
+  const nextLine = chapter.ascension
+    ? `Ascensão ${chapter.ascension + 1} liberada na Torre.`
+    : nextChapter
+    ? `Capítulo ${nextChapter.id} — “${nextChapter.name}” liberado.`
+    : "Você chegou ao fim da saga. Por enquanto.";
+
   const { box, close } = modal(
     `
     <div class="narrative">
       <div class="narrative__scene">${chapter.scene}</div>
-      <div class="eyebrow" style="text-align:center">Capítulo ${chapter.id} concluído</div>
+      <div class="eyebrow" style="text-align:center">${chapterLabel(chapter)} concluído</div>
       <h2 style="text-align:center; margin:4px 0 14px">${chapter.name}</h2>
       <p class="narrative__text">${chapter.outro}</p>
-      <p class="muted" style="margin-top:14px; text-align:center">
-        ${nextChapter ? `Capítulo ${nextChapter.id} — “${nextChapter.name}” liberado.` : "Você chegou ao fim da saga. Por enquanto."}
-      </p>
+      <p class="muted" style="margin-top:14px; text-align:center">${nextLine}</p>
       <div class="row" style="justify-content:center; margin-top:22px">
         <button class="btn btn--primary" data-fin>Voltar ao Santuário</button>
       </div>

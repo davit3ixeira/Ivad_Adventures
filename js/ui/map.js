@@ -5,10 +5,10 @@ import { state } from "../core/state.js";
 import { bus } from "../core/bus.js";
 import { router } from "./router.js";
 import { modal, toast } from "./toast.js";
-import { h } from "./components.js";
+import { h, chapterLabel } from "./components.js";
 import { NODE_META } from "../systems/mapgen.js";
 import { startRun, optionsFrom, currentNode, travelTo, endRunVictory } from "../systems/run.js";
-import { getChapter } from "../data/chapters.js";
+import { resolveChapter } from "../data/ascension.js";
 import { ENEMIES } from "../data/enemies.js";
 import { HEROES } from "../data/heroes.js";
 import { RELICS_BY_ID } from "../data/relics.js";
@@ -17,18 +17,18 @@ import { portrait } from "../data/manifest.js";
 
 export function renderMap(mount, params = {}) {
   if (params.newRun) {
-    const res = startRun(params.newRun);
+    const res = startRun(params.newRun, { ascension: params.ascension || null });
     if (res.error) {
       toast("Escale um esquadrão primeiro.", "bad");
       return router.go("roster");
     }
-    showChapterIntro(getChapter(params.newRun));
+    showChapterIntro(resolveChapter(params.newRun));
   }
 
   const run = state.run;
   if (!run) return router.go("menu");
 
-  const chapter = getChapter(run.chapter);
+  const chapter = resolveChapter(run.chapter);
   const cur = currentNode();
   const opts = new Set(optionsFrom().map((n) => n.id));
 
@@ -43,7 +43,7 @@ export function renderMap(mount, params = {}) {
       <section class="center" style="min-height:60vh; text-align:center">
         <div>
           <div style="font-size:4rem">${chapter.scene}</div>
-          <h1 class="screen-title" style="margin:10px 0">Capítulo ${chapter.id} concluído</h1>
+          <h1 class="screen-title" style="margin:10px 0">${chapterLabel(chapter)} concluído</h1>
           <p class="screen-sub" style="margin:0 auto 22px">${chapter.outro}</p>
           <button class="btn btn--primary btn--lg" data-fin>Voltar ao Santuário</button>
         </div>
@@ -72,7 +72,7 @@ export function renderMap(mount, params = {}) {
     <section>
       <div class="screen-head row row--between">
         <div>
-          <div class="eyebrow">Capítulo ${chapter.id} · ${chapter.locale}</div>
+          <div class="eyebrow">${chapterLabel(chapter)} · ${chapter.locale}</div>
           <h1 class="screen-title">${chapter.scene} ${chapter.name}</h1>
         </div>
         <button class="btn btn--ghost btn--sm" data-nav="menu">☰ Santuário</button>
@@ -189,7 +189,7 @@ function showChapterIntro(chapter) {
   const { box, close } = modal(`
     <div class="narrative">
       <div class="narrative__scene">${chapter.scene}</div>
-      <div class="eyebrow" style="text-align:center">Capítulo ${chapter.id}</div>
+      <div class="eyebrow" style="text-align:center">${chapterLabel(chapter)}</div>
       <h2 style="text-align:center; margin:4px 0 14px">${chapter.name}</h2>
       <p class="narrative__text">${chapter.intro}</p>
       <div class="row" style="justify-content:center; margin-top:22px">

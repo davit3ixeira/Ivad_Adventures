@@ -7,7 +7,7 @@
  */
 import { HEROES } from "../data/heroes.js";
 import { ENEMIES, enemyStats } from "../data/enemies.js";
-import { getChapter } from "../data/chapters.js";
+import { resolveChapter } from "../data/ascension.js";
 import { makeRng } from "../core/rng.js";
 import { reachable, manhattan, key } from "./pathfind.js";
 import { affinityMultiplier, affinityState } from "./affinity.js";
@@ -145,7 +145,7 @@ function freeTilesInZone(grid, occupied, xs) {
 }
 
 export function createBattle(run, node) {
-  const chapter = getChapter(run.chapter);
+  const chapter = resolveChapter(run.chapter);
   const seed = (run.seed ^ (node.row * 73856093) ^ (node.col * 19349663)) >>> 0;
   const r = makeRng(seed);
   const grid = buildGrid(chapter, r);

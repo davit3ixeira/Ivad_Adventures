@@ -32,6 +32,7 @@ function freshMeta() {
     unlockedChapter: 1,
     runsWon: 0,
     firstFivePity: 60, // 5★ garantido nesta contagem
+    ascensionBest: 0, // maior nível da Torre da Ascensão já superado (pós-campanha)
   };
 }
 
@@ -67,6 +68,7 @@ export const state = {
         tomes: old.tomes || 0,
         unlockedChapter: old.unlockedChapter ?? 1,
         runsWon: old.runsWon ?? 0,
+        ascensionBest: old.ascensionBest ?? 0,
       };
       this.run = null;
       // (não concede herói inicial — jogadores antigos mantêm a coleção que já têm)
@@ -281,6 +283,16 @@ export const state = {
       this.meta.unlockedChapter = id;
       this.persist();
       bus.emit("chapter:unlocked", id);
+    }
+  },
+
+  // ---------------------------------------------------- Torre da Ascensão
+  /** Registra o nível de Ascensão superado (só sobe — nunca desfaz um recorde). */
+  bumpAscension(level) {
+    if (level > (this.meta.ascensionBest || 0)) {
+      this.meta.ascensionBest = level;
+      this.persist();
+      bus.emit("ascension:cleared", level);
     }
   },
 

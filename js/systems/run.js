@@ -7,15 +7,15 @@ import { bus } from "../core/bus.js";
 import { rng } from "../core/rng.js";
 import { generateMap } from "./mapgen.js";
 import { HEROES, heroStats } from "../data/heroes.js";
-import { getChapter } from "../data/chapters.js";
+import { resolveChapter } from "../data/ascension.js";
 import { RELICS, RELICS_BY_ID } from "../data/relics.js";
 import { UPGRADES, UPGRADES_BY_ID } from "../data/upgrades.js";
 import { rollEquipDrop, equipBonus } from "../data/equipment.js";
 
 const clampHP = (u) => (u.curHP = Math.max(0, Math.min(u.base.maxHP, Math.round(u.curHP))));
 
-/** Cria a run e persiste. */
-export function startRun(chapterId) {
+/** Cria a run e persiste. `ascension`, se passado, marca a run como um nível da Torre. */
+export function startRun(chapterId, { ascension = null } = {}) {
   const roster = state.squadEntries();
   if (roster.length === 0) return { error: "sem-esquadrao" };
 
@@ -46,6 +46,7 @@ export function startRun(chapterId) {
 
   const run = {
     chapter: chapterId,
+    ascension, // null numa jornada normal; nível da Torre numa run pós-campanha
     seed,
     map,
     currentId: map.startId,
@@ -268,7 +269,7 @@ export function recordBattleWin(node) {
   run.battlesWon += 1;
 
   // sincroniza HP da run com o resultado da batalha (feito em battle.js)
-  const chapter = getChapter(run.chapter);
+  const chapter = resolveChapter(run.chapter);
   const isElite = node.type === "elite";
   const isBoss = node.type === "boss";
 
@@ -307,7 +308,8 @@ export function recordBattleWin(node) {
 
   if (isBoss) {
     state.meta.runsWon += 1;
-    state.unlockChapter(run.chapter + 1);
+    if (run.ascension) state.bumpAscension(run.ascension);
+    else state.unlockChapter(run.chapter + 1);
   }
   state.persist();
   bus.emit("run:changed");
@@ -325,7 +327,7 @@ function collectEquipDrops() {
 }
 
 export function endRunVictory() {
-  const chapter = getChapter(state.run.chapter);
+  const chapter = resolveChapter(state.run.chapter);
   const loot = collectEquipDrops();
   state.clearRun();
   bus.emit("run:ended", { victory: true, chapter, loot });

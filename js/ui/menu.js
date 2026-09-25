@@ -7,13 +7,15 @@ import { modal, toast } from "./toast.js";
 import { h } from "./components.js";
 import { HEROES } from "../data/heroes.js";
 import { CHAPTERS } from "../data/chapters.js";
+import { resolveChapter } from "../data/ascension.js";
 import { abandonRun } from "../systems/run.js";
 
 export function renderMenu(mount) {
   const m = state.meta;
   const fiveCount = m.roster.filter((e) => HEROES[e.id]?.star === 5).length;
   const hasRun = !!state.run;
-  const chapterName = hasRun ? CHAPTERS.find((c) => c.id === state.run.chapter)?.name : null;
+  const chapterName = hasRun ? resolveChapter(state.run.chapter)?.name : null;
+  const campaignDone = m.unlockedChapter > CHAPTERS.length;
 
   mount.appendChild(
     h(`
@@ -34,6 +36,11 @@ export function renderMenu(mount) {
                  <button class="btn btn--ghost" data-act="abandon">Abandonar jornada atual</button>`
               : `<button class="btn btn--primary btn--lg" data-act="new">⚔️ Nova Jornada</button>`
           }
+          ${
+            !hasRun && campaignDone
+              ? `<button class="btn btn--gold" data-act="ascend">🌌 Torre da Ascensão — Nível ${(m.ascensionBest || 0) + 1}</button>`
+              : ""
+          }
           <button class="btn" data-nav="gacha">💠 Portal de Invocação</button>
           <button class="btn" data-nav="roster">🗡️ Coleção &amp; Esquadrão</button>
           <button class="btn btn--ghost btn--sm" data-nav="admin">🛠 Painel ADM</button>
@@ -48,7 +55,8 @@ export function renderMenu(mount) {
           <div class="menu__stat-row"><span>Lendas 5★</span> <b>${fiveCount}</b></div>
           <div class="menu__stat-row"><span>Invocações feitas</span> <b>${m.pulls}</b></div>
           <div class="menu__stat-row"><span>Jornadas vencidas</span> <b>${m.runsWon}</b></div>
-          <div class="menu__stat-row"><span>Capítulo liberado</span> <b>${m.unlockedChapter}</b></div>
+          <div class="menu__stat-row"><span>Capítulo liberado</span> <b>${Math.min(m.unlockedChapter, CHAPTERS.length)}</b></div>
+          ${campaignDone ? `<div class="menu__stat-row"><span>🌌 Ascensão superada</span> <b>${m.ascensionBest || 0}</b></div>` : ""}
           <div class="menu__stat-row"><span>Fragmentos Universais</span> <b>${m.frag} 💠</b></div>
         </div>
       </aside>
@@ -57,9 +65,21 @@ export function renderMenu(mount) {
   );
 
   mount.querySelector('[data-act="new"]')?.addEventListener("click", () => openChapterSelect());
+  mount.querySelector('[data-act="ascend"]')?.addEventListener("click", () => startAscension());
   mount.querySelector('[data-act="continue"]')?.addEventListener("click", () => router.go("map"));
   mount.querySelector('[data-act="abandon"]')?.addEventListener("click", () => confirmAbandon());
   mount.querySelector('[data-act="reset"]')?.addEventListener("click", () => confirmReset());
+}
+
+/** Torre da Ascensão: sempre tenta o próximo nível não superado — sem seleção manual. */
+function startAscension() {
+  if (state.squadEntries().length === 0) {
+    toast("Monte um esquadrão antes de partir.", "bad");
+    router.go("roster");
+    return;
+  }
+  const level = (state.meta.ascensionBest || 0) + 1;
+  router.go("map", { newRun: CHAPTERS.length + level, ascension: level });
 }
 
 export function openChapterSelect() {

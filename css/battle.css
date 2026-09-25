@@ -35,6 +35,7 @@
 .battle__stage[data-ch="torneio"]      { --arena-1: rgba(255, 182, 84, 0.26); --arena-2: rgba(182, 32, 62, 0.2); }
 .battle__stage[data-ch="associacao"]   { --arena-1: rgba(124, 154, 194, 0.22); --arena-2: rgba(52, 62, 84, 0.3); }
 .battle__stage[data-ch="destruidores"] { --arena-1: rgba(255, 92, 202, 0.24); --arena-2: rgba(255, 255, 255, 0.12); }
+.battle__stage[data-ch="ascensao"]     { --arena-1: rgba(255, 206, 107, 0.22); --arena-2: rgba(20, 4, 40, 0.55); }
 
 .battle__banner {
   text-align: center;

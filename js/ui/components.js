@@ -16,6 +16,11 @@ export function stars(n) {
   return "★".repeat(n) + "☆".repeat(Math.max(0, 5 - n));
 }
 
+/** Rótulo de tela pra um chapter resolvido: capítulo canônico ou nível da Torre da Ascensão. */
+export function chapterLabel(chapter) {
+  return chapter.ascension ? `Ascensão ${chapter.ascension}` : `Capítulo ${chapter.id}`;
+}
+
 /** selo do(s) tipo(s): "⚔️ Físico", "🟢🔵 Projeção · Mana", "✨ Divino" */
 export function affBadge(types) {
   const cls = typeClass(types);

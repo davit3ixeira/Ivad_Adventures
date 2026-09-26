@@ -8,6 +8,7 @@ import { h } from "./components.js";
 import { HEROES } from "../data/heroes.js";
 import { CHAPTERS } from "../data/chapters.js";
 import { resolveChapter } from "../data/ascension.js";
+import { PACTS } from "../data/pacts.js";
 import { abandonRun } from "../systems/run.js";
 
 export function renderMenu(mount) {
@@ -71,7 +72,7 @@ export function renderMenu(mount) {
   mount.querySelector('[data-act="reset"]')?.addEventListener("click", () => confirmReset());
 }
 
-/** Torre da Ascensão: sempre tenta o próximo nível não superado — sem seleção manual. */
+/** Torre da Ascensão: sempre tenta o próximo nível não superado — sem seleção manual de nível. */
 function startAscension() {
   if (state.squadEntries().length === 0) {
     toast("Monte um esquadrão antes de partir.", "bad");
@@ -79,7 +80,58 @@ function startAscension() {
     return;
   }
   const level = (state.meta.ascensionBest || 0) + 1;
-  router.go("map", { newRun: CHAPTERS.length + level, ascension: level });
+  openPactSelect(level);
+}
+
+/** Pactos de Punição: escolha opcional e combinável de risco↔recompensa antes de subir a Torre. */
+function openPactSelect(level) {
+  const chosen = new Set();
+
+  const pactCard = (p) => `
+    <button class="pact-card ${chosen.has(p.id) ? "is-on" : ""}" data-pact="${p.id}">
+      <b>${p.emoji} ${p.name}</b>
+      <small class="pact-card__risk">⚠️ ${p.text}</small>
+      <small class="pact-card__boon">🎁 ${p.boon}</small>
+    </button>`;
+
+  const summary = () =>
+    chosen.size === 0
+      ? `<span class="muted">Nenhum Pacto selecionado — nível ${level} no seu ritmo normal.</span>`
+      : `<b>${chosen.size} Pacto${chosen.size > 1 ? "s" : ""} ativo${chosen.size > 1 ? "s" : ""}.</b> Inimigos mais fortes, loot maior.`;
+
+  const { box, close } = modal(`
+    <h2 style="margin-bottom:6px">🌌 Torre da Ascensão — Nível ${level}</h2>
+    <p class="muted" style="margin-bottom:16px">
+      Pactos de Punição (opcional): fortaleça os inimigos deste nível em troca de mais Fragmentos, Gemas
+      ou equipamentos. Combine quantos quiser — ou entre sem nenhum.
+    </p>
+    <div class="pact-list" id="pact-list">${PACTS.map(pactCard).join("")}</div>
+    <div class="pact-summary" id="pact-summary">${summary()}</div>
+    <div class="row" style="margin-top:16px">
+      <button class="btn btn--primary" data-start>▶ Entrar na Torre</button>
+      <button class="btn btn--ghost" data-cancel>Cancelar</button>
+    </div>
+  `);
+
+  const wireCards = () => {
+    box.querySelectorAll("[data-pact]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.pact;
+        if (chosen.has(id)) chosen.delete(id);
+        else chosen.add(id);
+        box.querySelector("#pact-list").innerHTML = PACTS.map(pactCard).join("");
+        box.querySelector("#pact-summary").innerHTML = summary();
+        wireCards();
+      });
+    });
+  };
+  wireCards();
+
+  box.querySelector("[data-start]").addEventListener("click", () => {
+    close();
+    router.go("map", { newRun: CHAPTERS.length + level, ascension: level, pacts: [...chosen] });
+  });
+  box.querySelector("[data-cancel]").addEventListener("click", close);
 }
 
 export function openChapterSelect() {

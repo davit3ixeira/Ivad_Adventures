@@ -18,6 +18,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { EQUIPMENT, RANKS, EQUIP_SLOTS } from "../data/equipment.js";
 import { UPGRADES } from "../data/upgrades.js";
 import { RELICS } from "../data/relics.js";
+import { PACTS } from "../data/pacts.js";
 import { EVENTS } from "../data/narrative.js";
 import { CHAPTERS } from "../data/chapters.js";
 import { resolveChapter } from "../data/ascension.js";
@@ -374,6 +375,21 @@ function renderRun(body, paint) {
     </div>
 
     <div class="panel adm-panel">
+      <h3>🌌 Pactos de Punição ${run.ascension ? "" : '<span class="dim">(só valem num nível da Torre)</span>'}</h3>
+      <p class="muted" style="font-size:.8rem;margin-bottom:8px">Ativa/desativa pra testar o balanço de risco↔recompensa sem reiniciar a run.</p>
+      <div class="adm-eq-list">
+        ${PACTS.map((p) => {
+          const on = (run.pacts || []).includes(p.id);
+          return `<div class="adm-eq-row" data-pact="${p.id}">
+            <span>${p.emoji} <b>${p.name}</b> ${on ? '<i class="dim">(ativo)</i>' : ""}</span>
+            <small class="muted">⚠️ ${p.text} · 🎁 ${p.boon}</small>
+            <span class="adm-eq-row__act"><button class="btn btn--ghost btn--sm" data-pact-toggle>${on ? "Remover" : "Ativar"}</button></span>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>
+
+    <div class="panel adm-panel">
       <h3>Conceder Relíquia de Mácula</h3>
       <div class="adm-eq-list">
         ${RELICS.map(
@@ -413,6 +429,14 @@ function renderRun(body, paint) {
     toast("Especiais carregados.", "gold");
     paint();
   });
+  body.querySelectorAll("[data-pact]").forEach((row) =>
+    row.querySelector("[data-pact-toggle]").addEventListener("click", () => {
+      const id = row.dataset.pact;
+      const cur = state.run.pacts || [];
+      state.adminPatchRun({ pacts: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
+      paint();
+    })
+  );
   body.querySelectorAll("[data-relic]").forEach((row) =>
     row.querySelector("[data-relic-add]").addEventListener("click", () => { addRelic(row.dataset.relic); paint(); })
   );
@@ -427,6 +451,7 @@ const DATA_TABS = [
   ["inimigos", "Inimigos"],
   ["reliquias", "Relíquias"],
   ["cartas", "Cartas de Mácula"],
+  ["pactos", "Pactos de Punição"],
   ["eventos", "Eventos"],
   ["equip", "Equipamentos"],
   ["capitulos", "Capítulos"],
@@ -447,6 +472,7 @@ function renderDados(body) {
       inimigos: dataInimigos,
       reliquias: dataReliquias,
       cartas: dataCartas,
+      pactos: dataPactos,
       eventos: dataEventos,
       equip: dataEquip,
       capitulos: dataCapitulos,
@@ -532,6 +558,17 @@ function dataCartas() {
       <b>${u.emoji} ${u.name}</b>
       <p>${u.text}</p>
       <p class="dim">mod: ${JSON.stringify(u.mod)}</p>
+    </div>`
+  ).join("");
+}
+
+function dataPactos() {
+  return PACTS.map(
+    (p) => `<div class="adm-entry adm-entry--flat">
+      <b>${p.emoji} ${p.name}</b>
+      <p>⚠️ ${p.text}</p>
+      <p>🎁 ${p.boon}</p>
+      <p class="dim">enemy: ${JSON.stringify(p.enemy)} · reward: ${JSON.stringify(p.reward)}</p>
     </div>`
   ).join("");
 }

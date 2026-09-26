@@ -476,6 +476,30 @@
 .choice b { font-family: var(--font-display); display: block; margin-bottom: 4px; font-size: 0.98rem; color: var(--text); }
 .choice small { color: var(--text-mute); font-size: 0.82rem; line-height: 1.45; }
 
+/* ---- Pactos de Punição (Torre da Ascensão) ------------------------------ */
+.pact-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; max-height: 46vh; overflow-y: auto; }
+.pact-card {
+  text-align: left;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--hair);
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  cursor: pointer;
+  display: flex; flex-direction: column; gap: 3px;
+  transition: transform 0.14s var(--ease), border-color 0.16s, box-shadow 0.2s, background 0.16s;
+}
+.pact-card:hover { border-color: var(--hair-2); transform: translateX(3px); }
+.pact-card.is-on {
+  border-color: #ffce6b;
+  background: linear-gradient(180deg, color-mix(in srgb, #ffce6b 14%, var(--bg-2)), var(--bg-1));
+  box-shadow: 0 0 0 1px #ffce6b, 0 0 22px -8px rgba(255, 206, 107, 0.55);
+}
+.pact-card b { font-family: var(--font-display); font-size: 0.94rem; color: var(--text); }
+.pact-card__risk { color: var(--rubro); font-size: 0.8rem; line-height: 1.4; }
+.pact-card__boon { color: var(--nature); font-size: 0.8rem; line-height: 1.4; }
+.pact-summary { margin-top: 14px; padding: 10px 12px; border-radius: var(--r-md); background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line-soft); font-size: 0.86rem; }
+
 .reward-screen { max-width: 780px; margin: 0 auto; }
 .reward-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-top: 8px; }
 .reward-draft { margin-top: 30px; }

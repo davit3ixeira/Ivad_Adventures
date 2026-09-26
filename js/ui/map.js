@@ -13,16 +13,17 @@ import { ENEMIES } from "../data/enemies.js";
 import { HEROES } from "../data/heroes.js";
 import { RELICS_BY_ID } from "../data/relics.js";
 import { UPGRADES_BY_ID } from "../data/upgrades.js";
+import { PACTS_BY_ID } from "../data/pacts.js";
 import { portrait } from "../data/manifest.js";
 
 export function renderMap(mount, params = {}) {
   if (params.newRun) {
-    const res = startRun(params.newRun, { ascension: params.ascension || null });
+    const res = startRun(params.newRun, { ascension: params.ascension || null, pacts: params.pacts || [] });
     if (res.error) {
       toast("Escale um esquadrão primeiro.", "bad");
       return router.go("roster");
     }
-    showChapterIntro(resolveChapter(params.newRun));
+    showChapterIntro(resolveChapter(params.newRun), state.run.pacts);
   }
 
   const run = state.run;
@@ -185,13 +186,22 @@ function enterNode(node) {
   }
 }
 
-function showChapterIntro(chapter) {
+function showChapterIntro(chapter, pacts = []) {
+  const activePacts = pacts.map((id) => PACTS_BY_ID[id]).filter(Boolean);
   const { box, close } = modal(`
     <div class="narrative">
       <div class="narrative__scene">${chapter.scene}</div>
       <div class="eyebrow" style="text-align:center">${chapterLabel(chapter)}</div>
       <h2 style="text-align:center; margin:4px 0 14px">${chapter.name}</h2>
       <p class="narrative__text">${chapter.intro}</p>
+      ${
+        activePacts.length
+          ? `<div class="pact-summary" style="text-align:left">
+              <b>🌌 Pactos de Punição ativos:</b>
+              ${activePacts.map((p) => `${p.emoji} ${p.name}`).join(" · ")}
+            </div>`
+          : ""
+      }
       <div class="row" style="justify-content:center; margin-top:22px">
         <button class="btn btn--primary" data-go>Começar</button>
       </div>

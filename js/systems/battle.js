@@ -12,7 +12,7 @@ import { makeRng } from "../core/rng.js";
 import { reachable, manhattan, key } from "./pathfind.js";
 import { affinityMultiplier, affinityState } from "./affinity.js";
 import { planEnemyAction } from "./ai.js";
-import { modList, relicTriggers } from "./run.js";
+import { modList, relicTriggers, pactMods } from "./run.js";
 
 const GRID_W = 8;
 const GRID_H = 6;
@@ -76,25 +76,27 @@ function buildGrid(chapter, r) {
   return { w: GRID_W, h: GRID_H, tiles };
 }
 
-function enemyLineup(node, chapter, r) {
+function enemyLineup(node, chapter, r, extraGrunt = 0) {
   const depth = node.row;
   const grunt = () => ENEMIES[r.pick(chapter.grunts)];
+  const extra = Math.min(2, Math.max(0, Math.round(extraGrunt))); // Pacto "Legião Extra", tampado pra não lotar a arena
 
   if (node.type === "boss") {
     return [
       { def: ENEMIES[node.enemyId], role: "boss" },
       { def: grunt(), role: "add" },
       { def: grunt(), role: "add" },
+      ...Array.from({ length: extra }, () => ({ def: grunt(), role: "add" })),
     ];
   }
   if (node.type === "elite") {
-    const adds = r.int(1, 2);
+    const adds = r.int(1, 2) + extra;
     return [
       { def: ENEMIES[node.enemyId], role: "elite" },
       ...Array.from({ length: adds }, () => ({ def: grunt(), role: "add" })),
     ];
   }
-  const count = Math.min(5, 2 + Math.floor(depth / 4) + (chapter.id >= 3 ? 1 : 0));
+  const count = Math.min(5, 2 + Math.floor(depth / 4) + (chapter.id >= 3 ? 1 : 0)) + extra;
   return Array.from({ length: count }, () => ({ def: grunt(), role: "add" }));
 }
 
@@ -152,6 +154,7 @@ export function createBattle(run, node) {
 
   const aura = aggregateAura();
   const triggers = relicTriggers();
+  const pm = pactMods(); // Pactos de Punição ativos na run (vazio fora da Torre)
 
   const units = [];
   const occupied = new Set();
@@ -205,10 +208,16 @@ export function createBattle(run, node) {
     });
 
   // ---- inimigos (metade direita) ----
-  const lineup = enemyLineup(node, chapter, r);
+  const lineup = enemyLineup(node, chapter, r, pm.extraGrunt);
   const enemyZone = r.shuffle(freeTilesInZone(grid, occupied, [GRID_W - 1, GRID_W - 2, GRID_W - 3]));
   lineup.forEach((slot, i) => {
-    const st = enemyStats(slot.def, chapter.id, node.row);
+    const raw = enemyStats(slot.def, chapter.id, node.row);
+    const st = {
+      ...raw,
+      maxHP: Math.round(raw.maxHP * (1 + pm.hpMul)),
+      atk: Math.round(raw.atk * (1 + pm.atkMul)),
+      spd: Math.round(raw.spd * (1 + pm.spdMul)),
+    };
     const spot =
       slot.role === "boss"
         ? (() => {

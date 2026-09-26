@@ -11,11 +11,13 @@ import { resolveChapter } from "../data/ascension.js";
 import { RELICS, RELICS_BY_ID } from "../data/relics.js";
 import { UPGRADES, UPGRADES_BY_ID } from "../data/upgrades.js";
 import { rollEquipDrop, equipBonus } from "../data/equipment.js";
+import { PACTS_BY_ID, aggregatePacts } from "../data/pacts.js";
 
 const clampHP = (u) => (u.curHP = Math.max(0, Math.min(u.base.maxHP, Math.round(u.curHP))));
 
-/** Cria a run e persiste. `ascension`, se passado, marca a run como um nível da Torre. */
-export function startRun(chapterId, { ascension = null } = {}) {
+/** Cria a run e persiste. `ascension`, se passado, marca a run como um nível da Torre.
+ *  `pacts`, se passado, são ids de Pactos de Punição aceitos (só faz sentido na Torre). */
+export function startRun(chapterId, { ascension = null, pacts = [] } = {}) {
   const roster = state.squadEntries();
   if (roster.length === 0) return { error: "sem-esquadrao" };
 
@@ -47,6 +49,7 @@ export function startRun(chapterId, { ascension = null } = {}) {
   const run = {
     chapter: chapterId,
     ascension, // null numa jornada normal; nível da Torre numa run pós-campanha
+    pacts: ascension ? pacts.filter((id) => PACTS_BY_ID[id]) : [], // Pactos de Punição aceitos (só na Torre)
     seed,
     map,
     currentId: map.startId,
@@ -99,6 +102,12 @@ export function clearNode(nodeId) {
     run.map.nodes[nodeId].cleared = true;
     state.persist();
   }
+}
+
+// ------------------------------------------------------------ Pactos de Punição
+/** Bag agregada dos Pactos ativos na run (ou zerada, se nenhum). Lida por battle.js. */
+export function pactMods() {
+  return aggregatePacts(state.run?.pacts || []);
 }
 
 // ------------------------------------------------------------ modificadores
@@ -272,10 +281,13 @@ export function recordBattleWin(node) {
   const chapter = resolveChapter(run.chapter);
   const isElite = node.type === "elite";
   const isBoss = node.type === "boss";
+  const pm = pactMods(); // Pactos de Punição: infla o loot em troca de inimigos mais fortes
 
   // Fragmentos ficaram escassos: o grosso da moeda de Invocação vem só de chefes.
-  const fragDrop = isBoss ? chapter.reward.frag : isElite ? 2 : rng.chance(0.5) ? 1 : 0;
-  const gemaDrop = isBoss ? 40 : isElite ? 22 : rng.int(8, 14);
+  const fragBase = isBoss ? chapter.reward.frag : isElite ? 2 : rng.chance(0.5) ? 1 : 0;
+  const gemaBase = isBoss ? 40 : isElite ? 22 : rng.int(8, 14);
+  const fragDrop = Math.round(fragBase * (1 + pm.fragMul));
+  const gemaDrop = Math.round(gemaBase * (1 + pm.gemaMul));
 
   state.addFrag(fragDrop);
   addGemas(gemaDrop);
@@ -300,8 +312,9 @@ export function recordBattleWin(node) {
 
   const rewards = { frag: fragDrop, gemas: gemaDrop, tome: tomeDrop, relic: null, equip: null };
   if (isBoss || isElite || rng.chance(0.18)) rewards.relic = addRelic();
-  // drop de equipamento: chefe garante, elite 50%, batalha 12%
-  if (isBoss || (isElite && rng.chance(0.5)) || rng.chance(0.12)) {
+  // drop de equipamento: chefe garante, elite 50%, batalha 12% (Pactos inflam a chance)
+  const equipChance = Math.min(1, (isElite ? 0.5 : 0.12) * (1 + pm.equipChanceMul));
+  if (isBoss || rng.chance(equipChance)) {
     rewards.equip = rollEquipDrop(isBoss ? "boss" : isElite ? "elite" : "battle", chapter.id);
     if (rewards.equip) run.equipDrops.push(rewards.equip);
   }

@@ -475,6 +475,12 @@
 .choice:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .choice b { font-family: var(--font-display); display: block; margin-bottom: 4px; font-size: 0.98rem; color: var(--text); }
 .choice small { color: var(--text-mute); font-size: 0.82rem; line-height: 1.45; }
+.choice.is-selected {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 14%, var(--bg-2)), var(--bg-1));
+  box-shadow: 0 0 0 1px var(--gold), -6px 0 22px -10px var(--gold-glow);
+}
+.choice.is-selected b { color: var(--gold); }
 
 .reward-screen { max-width: 780px; margin: 0 auto; }
 .reward-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-top: 8px; }

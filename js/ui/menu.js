@@ -8,6 +8,7 @@ import { h } from "./components.js";
 import { HEROES } from "../data/heroes.js";
 import { CHAPTERS } from "../data/chapters.js";
 import { resolveChapter } from "../data/ascension.js";
+import { PACTS } from "../data/pacts.js";
 import { abandonRun } from "../systems/run.js";
 
 export function renderMenu(mount) {
@@ -71,15 +72,67 @@ export function renderMenu(mount) {
   mount.querySelector('[data-act="reset"]')?.addEventListener("click", () => confirmReset());
 }
 
-/** Torre da Ascensão: sempre tenta o próximo nível não superado — sem seleção manual. */
+/** Torre da Ascensão: sempre tenta o próximo nível não superado — sem seleção manual de nível. */
 function startAscension() {
   if (state.squadEntries().length === 0) {
     toast("Monte um esquadrão antes de partir.", "bad");
     router.go("roster");
     return;
   }
+  openPactSelect();
+}
+
+/** Pactos da Torre: modificadores opcionais de risco/recompensa antes de subir um nível. */
+function openPactSelect() {
   const level = (state.meta.ascensionBest || 0) + 1;
-  router.go("map", { newRun: CHAPTERS.length + level, ascension: level });
+  const selected = new Set();
+
+  const list = PACTS.map(
+    (p) => `
+      <button class="choice" data-pact="${p.id}">
+        <b>${p.emoji} ${p.name} <span class="dim" style="font-weight:400">— +${Math.round(p.rewardMul * 100)}% recompensa</span></b>
+        <small>${p.text}</small>
+      </button>`
+  ).join("");
+
+  const { box, close } = modal(`
+    <h2 style="margin-bottom:6px">🌌 Ascensão ${level} — Pactos da Torre</h2>
+    <p class="muted" style="margin-bottom:16px">
+      Opcional: ative quantos pactos quiser para deixar os inimigos <b>deste nível</b> mais
+      fortes — em troca, toda batalha do nível rende mais 💠 Fragmentos, 💎 Gemas e 📖 Tomos.
+      Pode entrar sem nenhum.
+    </p>
+    <div class="choice-list" id="pact-list">${list}</div>
+    <div class="row row--between" style="margin-top:18px; align-items:center">
+      <span class="muted" id="pact-total">Bônus de recompensa: +0%</span>
+      <button class="btn btn--primary" data-start>Entrar na Ascensão ${level}</button>
+    </div>
+  `);
+
+  const totalEl = box.querySelector("#pact-total");
+  const refreshTotal = () => {
+    const pct = PACTS.filter((p) => selected.has(p.id)).reduce((s, p) => s + p.rewardMul, 0);
+    totalEl.textContent = `Bônus de recompensa: +${Math.round(pct * 100)}%`;
+  };
+
+  box.querySelectorAll("[data-pact]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.pact;
+      if (selected.has(id)) {
+        selected.delete(id);
+        btn.classList.remove("is-selected");
+      } else {
+        selected.add(id);
+        btn.classList.add("is-selected");
+      }
+      refreshTotal();
+    });
+  });
+
+  box.querySelector("[data-start]").addEventListener("click", () => {
+    close();
+    router.go("map", { newRun: CHAPTERS.length + level, ascension: level, pacts: [...selected] });
+  });
 }
 
 export function openChapterSelect() {

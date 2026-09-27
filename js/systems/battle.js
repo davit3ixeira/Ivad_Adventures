@@ -12,7 +12,7 @@ import { makeRng } from "../core/rng.js";
 import { reachable, manhattan, key } from "./pathfind.js";
 import { affinityMultiplier, affinityState } from "./affinity.js";
 import { planEnemyAction } from "./ai.js";
-import { modList, relicTriggers } from "./run.js";
+import { modList, relicTriggers, pactMods } from "./run.js";
 
 const GRID_W = 8;
 const GRID_H = 6;
@@ -76,7 +76,7 @@ function buildGrid(chapter, r) {
   return { w: GRID_W, h: GRID_H, tiles };
 }
 
-function enemyLineup(node, chapter, r) {
+function enemyLineup(node, chapter, r, extraAdd = 0) {
   const depth = node.row;
   const grunt = () => ENEMIES[r.pick(chapter.grunts)];
 
@@ -85,16 +85,17 @@ function enemyLineup(node, chapter, r) {
       { def: ENEMIES[node.enemyId], role: "boss" },
       { def: grunt(), role: "add" },
       { def: grunt(), role: "add" },
+      ...Array.from({ length: extraAdd }, () => ({ def: grunt(), role: "add" })),
     ];
   }
   if (node.type === "elite") {
-    const adds = r.int(1, 2);
+    const adds = r.int(1, 2) + extraAdd;
     return [
       { def: ENEMIES[node.enemyId], role: "elite" },
       ...Array.from({ length: adds }, () => ({ def: grunt(), role: "add" })),
     ];
   }
-  const count = Math.min(5, 2 + Math.floor(depth / 4) + (chapter.id >= 3 ? 1 : 0));
+  const count = Math.min(6, 2 + Math.floor(depth / 4) + (chapter.id >= 3 ? 1 : 0) + extraAdd);
   return Array.from({ length: count }, () => ({ def: grunt(), role: "add" }));
 }
 
@@ -150,7 +151,9 @@ export function createBattle(run, node) {
   const r = makeRng(seed);
   const grid = buildGrid(chapter, r);
 
+  const pact = pactMods();
   const aura = aggregateAura();
+  if (pact.noHealStart) aura.healStart = 0; // Pacto "Jejum Primordial"
   const triggers = relicTriggers();
 
   const units = [];
@@ -205,10 +208,17 @@ export function createBattle(run, node) {
     });
 
   // ---- inimigos (metade direita) ----
-  const lineup = enemyLineup(node, chapter, r);
+  const lineup = enemyLineup(node, chapter, r, pact.extraAdd);
   const enemyZone = r.shuffle(freeTilesInZone(grid, occupied, [GRID_W - 1, GRID_W - 2, GRID_W - 3]));
   lineup.forEach((slot, i) => {
-    const st = enemyStats(slot.def, chapter.id, node.row);
+    const raw = enemyStats(slot.def, chapter.id, node.row);
+    const st = {
+      ...raw,
+      atk: Math.round(raw.atk * (1 + pact.enemyAtkMul)),
+      def: Math.round(raw.def * (1 + pact.enemyDefMul)),
+      maxHP: Math.round(raw.maxHP * (1 + pact.enemyHpMul)),
+      spd: Math.round(raw.spd * (1 + pact.enemySpdMul)),
+    };
     const spot =
       slot.role === "boss"
         ? (() => {

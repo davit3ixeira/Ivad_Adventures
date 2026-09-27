@@ -10,12 +10,17 @@ import { HEROES, heroStats } from "../data/heroes.js";
 import { resolveChapter } from "../data/ascension.js";
 import { RELICS, RELICS_BY_ID } from "../data/relics.js";
 import { UPGRADES, UPGRADES_BY_ID } from "../data/upgrades.js";
+import { PACTS_BY_ID } from "../data/pacts.js";
 import { rollEquipDrop, equipBonus } from "../data/equipment.js";
 
 const clampHP = (u) => (u.curHP = Math.max(0, Math.min(u.base.maxHP, Math.round(u.curHP))));
 
-/** Cria a run e persiste. `ascension`, se passado, marca a run como um nível da Torre. */
-export function startRun(chapterId, { ascension = null } = {}) {
+/**
+ * Cria a run e persiste. `ascension`, se passado, marca a run como um nível
+ * da Torre. `pacts` só tem efeito em runs de Ascensão — Pactos da Torre
+ * escolhidos antes de entrar (ver ui/menu.js).
+ */
+export function startRun(chapterId, { ascension = null, pacts = [] } = {}) {
   const roster = state.squadEntries();
   if (roster.length === 0) return { error: "sem-esquadrao" };
 
@@ -47,6 +52,7 @@ export function startRun(chapterId, { ascension = null } = {}) {
   const run = {
     chapter: chapterId,
     ascension, // null numa jornada normal; nível da Torre numa run pós-campanha
+    pacts: ascension ? pacts.filter((id) => PACTS_BY_ID[id]) : [], // Pactos da Torre — só valem em Ascensão
     seed,
     map,
     currentId: map.startId,
@@ -110,6 +116,25 @@ export function modList() {
     ...run.upgrades.map((id) => UPGRADES_BY_ID[id]?.mod).filter(Boolean),
     ...run.relics.map((id) => RELICS_BY_ID[id]?.mod).filter(Boolean),
   ];
+}
+
+/** Pactos da Torre ativos na run (agregados) — inimigos mais fortes + bônus de recompensa. */
+export function pactMods() {
+  const run = state.run;
+  const a = { enemyAtkMul: 0, enemyDefMul: 0, enemyHpMul: 0, enemySpdMul: 0, extraAdd: 0, noHealStart: false, rewardMul: 0 };
+  if (!run?.pacts?.length) return a;
+  for (const id of run.pacts) {
+    const p = PACTS_BY_ID[id];
+    if (!p) continue;
+    a.enemyAtkMul += p.effect.enemyAtkMul || 0;
+    a.enemyDefMul += p.effect.enemyDefMul || 0;
+    a.enemyHpMul += p.effect.enemyHpMul || 0;
+    a.enemySpdMul += p.effect.enemySpdMul || 0;
+    a.extraAdd += p.effect.extraAdd || 0;
+    a.noHealStart = a.noHealStart || !!p.effect.noHealStart;
+    a.rewardMul += p.rewardMul || 0;
+  }
+  return a;
 }
 
 /** Gatilhos especiais das relíquias ativas. */
@@ -274,14 +299,16 @@ export function recordBattleWin(node) {
   const isBoss = node.type === "boss";
 
   // Fragmentos ficaram escassos: o grosso da moeda de Invocação vem só de chefes.
-  const fragDrop = isBoss ? chapter.reward.frag : isElite ? 2 : rng.chance(0.5) ? 1 : 0;
-  const gemaDrop = isBoss ? 40 : isElite ? 22 : rng.int(8, 14);
+  // Pactos da Torre (Ascensão) multiplicam tudo isso — risco maior, espólio maior.
+  const rewardMul = 1 + pactMods().rewardMul;
+  const fragDrop = Math.round((isBoss ? chapter.reward.frag : isElite ? 2 : rng.chance(0.5) ? 1 : 0) * rewardMul);
+  const gemaDrop = Math.round((isBoss ? 40 : isElite ? 22 : rng.int(8, 14)) * rewardMul);
 
   state.addFrag(fragDrop);
   addGemas(gemaDrop);
 
   // Tomo de Ascensão — sobe 1 nível de um herói. Chefe garante; senão, chance.
-  const tomeDrop = isBoss ? 2 : isElite ? (rng.chance(0.35) ? 1 : 0) : rng.chance(0.08) ? 1 : 0;
+  const tomeDrop = Math.round((isBoss ? 2 : isElite ? (rng.chance(0.35) ? 1 : 0) : rng.chance(0.08) ? 1 : 0) * rewardMul);
   if (tomeDrop) state.addTomes(tomeDrop);
 
   // relíquias com "bounty" (ex.: Semente Rachada)

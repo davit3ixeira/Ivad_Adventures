@@ -21,6 +21,7 @@ import { RELICS } from "../data/relics.js";
 import { EVENTS } from "../data/narrative.js";
 import { CHAPTERS } from "../data/chapters.js";
 import { resolveChapter } from "../data/ascension.js";
+import { PACTS_BY_ID } from "../data/pacts.js";
 import { addGemas, addRelic, addUpgrade, healSquad, reviveSquad, bumpMaxHP } from "../systems/run.js";
 
 let tab = "recursos";
@@ -364,6 +365,11 @@ function renderRun(body, paint) {
         <span>Relíquias</span><b>${run.relics.length}</b>
         <span>Cartas de Mácula</span><b>${run.upgrades.length}</b>
         <span>Esquadrão</span><b>${run.squad.map((u) => u.name).join(", ")}</b>
+        ${
+          run.pacts?.length
+            ? `<span>🌌 Pactos da Torre</span><b>${run.pacts.map((id) => `${PACTS_BY_ID[id]?.emoji ?? ""} ${PACTS_BY_ID[id]?.name ?? id}`).join(", ")}</b>`
+            : ""
+        }
       </div>
       <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap">
         <button class="btn btn--sm" data-heal>Curar esquadrão 100%</button>

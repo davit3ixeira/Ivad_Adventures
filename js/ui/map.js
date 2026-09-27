@@ -13,16 +13,17 @@ import { ENEMIES } from "../data/enemies.js";
 import { HEROES } from "../data/heroes.js";
 import { RELICS_BY_ID } from "../data/relics.js";
 import { UPGRADES_BY_ID } from "../data/upgrades.js";
+import { PACTS_BY_ID } from "../data/pacts.js";
 import { portrait } from "../data/manifest.js";
 
 export function renderMap(mount, params = {}) {
   if (params.newRun) {
-    const res = startRun(params.newRun, { ascension: params.ascension || null });
+    const res = startRun(params.newRun, { ascension: params.ascension || null, pacts: params.pacts || [] });
     if (res.error) {
       toast("Escale um esquadrão primeiro.", "bad");
       return router.go("roster");
     }
-    showChapterIntro(resolveChapter(params.newRun));
+    showChapterIntro(resolveChapter(params.newRun), res.run.pacts);
   }
 
   const run = state.run;
@@ -169,6 +170,9 @@ function renderHud(hud) {
       ${run.upgrades
         .map((id) => `<span title="${UPGRADES_BY_ID[id]?.name ?? ""}" style="opacity:.75">${UPGRADES_BY_ID[id]?.emoji ?? "▲"}</span>`)
         .join("")}
+      ${(run.pacts || [])
+        .map((id) => `<span title="Pacto: ${PACTS_BY_ID[id]?.name ?? ""}" style="filter:saturate(1.4)">${PACTS_BY_ID[id]?.emoji ?? "🔺"}</span>`)
+        .join("")}
     </div>`;
 }
 
@@ -185,13 +189,19 @@ function enterNode(node) {
   }
 }
 
-function showChapterIntro(chapter) {
+function showChapterIntro(chapter, pacts = []) {
+  const pactsLine = pacts.length
+    ? `<p class="muted" style="text-align:center; margin-top:10px">
+        Pactos ativos: ${pacts.map((id) => `${PACTS_BY_ID[id]?.emoji ?? "🔺"} ${PACTS_BY_ID[id]?.name ?? id}`).join(" · ")}
+      </p>`
+    : "";
   const { box, close } = modal(`
     <div class="narrative">
       <div class="narrative__scene">${chapter.scene}</div>
       <div class="eyebrow" style="text-align:center">${chapterLabel(chapter)}</div>
       <h2 style="text-align:center; margin:4px 0 14px">${chapter.name}</h2>
       <p class="narrative__text">${chapter.intro}</p>
+      ${pactsLine}
       <div class="row" style="justify-content:center; margin-top:22px">
         <button class="btn btn--primary" data-go>Começar</button>
       </div>

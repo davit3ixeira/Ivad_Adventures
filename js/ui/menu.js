@@ -7,7 +7,7 @@ import { modal, toast } from "./toast.js";
 import { h } from "./components.js";
 import { HEROES } from "../data/heroes.js";
 import { CHAPTERS } from "../data/chapters.js";
-import { resolveChapter } from "../data/ascension.js";
+import { resolveChapter, getAscensionChapter } from "../data/ascension.js";
 import { PACTS } from "../data/pacts.js";
 import { abandonRun } from "../systems/run.js";
 
@@ -39,7 +39,7 @@ export function renderMenu(mount) {
           }
           ${
             !hasRun && campaignDone
-              ? `<button class="btn btn--gold" data-act="ascend">🌌 Torre da Ascensão — Nível ${(m.ascensionBest || 0) + 1}</button>`
+              ? `<button class="btn btn--gold" data-act="ascend">🌌 Torre da Ascensão${m.ascensionBest ? ` — recorde: Nível ${m.ascensionBest}` : ""}</button>`
               : ""
           }
           <button class="btn" data-nav="gacha">💠 Portal de Invocação</button>
@@ -72,19 +72,54 @@ export function renderMenu(mount) {
   mount.querySelector('[data-act="reset"]')?.addEventListener("click", () => confirmReset());
 }
 
-/** Torre da Ascensão: sempre tenta o próximo nível não superado — sem seleção manual de nível. */
+/** Torre da Ascensão: abre a seleção manual de nível (qualquer um já superado, ou o próximo). */
 function startAscension() {
   if (state.squadEntries().length === 0) {
     toast("Monte um esquadrão antes de partir.", "bad");
     router.go("roster");
     return;
   }
-  openPactSelect();
+  openAscensionSelect();
 }
 
-/** Pactos da Torre: modificadores opcionais de risco/recompensa antes de subir um nível. */
-function openPactSelect() {
-  const level = (state.meta.ascensionBest || 0) + 1;
+/** Seleção manual de nível da Torre: replay de qualquer nível já superado, ou avançar pro próximo. */
+function openAscensionSelect() {
+  const best = state.meta.ascensionBest || 0;
+  const maxLevel = best + 1;
+
+  const list = Array.from({ length: maxLevel }, (_, i) => maxLevel - i) // do mais alto pro mais baixo
+    .map((lvl) => {
+      const ch = getAscensionChapter(lvl);
+      const cleared = lvl <= best;
+      const tag = cleared ? "✅ superado — repetir pra farmar" : "🆕 próximo nível";
+      return `
+        <button class="choice" data-level="${lvl}">
+          <b>${ch.scene} Ascensão ${lvl}</b>
+          <small>${ch.locale} · ${tag} · recompensa base: ${ch.reward.frag} 💠</small>
+        </button>`;
+    })
+    .join("");
+
+  const { box, close } = modal(`
+    <h2 style="margin-bottom:6px">🌌 Torre da Ascensão</h2>
+    <p class="muted" style="margin-bottom:16px">
+      Escolha um nível: repita um já superado com o esquadrão mais forte de hoje pra farmar
+      mais rápido, ou avance pro próximo nível pra bater um novo recorde.
+    </p>
+    <div class="choice-list">${list}</div>
+  `);
+
+  box.querySelectorAll("[data-level]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const lvl = Number(btn.dataset.level);
+      close();
+      openPactSelect(lvl);
+    });
+  });
+}
+
+/** Pactos da Torre: modificadores opcionais de risco/recompensa antes de entrar no nível escolhido. */
+function openPactSelect(level) {
   const selected = new Set();
 
   const list = PACTS.map(

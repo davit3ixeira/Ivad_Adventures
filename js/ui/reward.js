@@ -106,8 +106,13 @@ function showOutro(chapter) {
     router.go("menu");
   };
 
+  // com seleção manual de nível, o chefe batido pode já ter sido superado antes
+  // (replay pra farmar) — só anuncia "liberado" quando é de fato a fronteira do recorde.
+  const isAscensionFrontier = chapter.ascension && chapter.ascension >= (state.meta.ascensionBest || 0);
   const nextLine = chapter.ascension
-    ? `Ascensão ${chapter.ascension + 1} liberada na Torre.`
+    ? isAscensionFrontier
+      ? `Ascensão ${chapter.ascension + 1} liberada na Torre.`
+      : `Nível ${chapter.ascension} repetido — recorde da Torre continua no Nível ${state.meta.ascensionBest}.`
     : nextChapter
     ? `Capítulo ${nextChapter.id} — “${nextChapter.name}” liberado.`
     : "Você chegou ao fim da saga. Por enquanto.";

@@ -53,6 +53,7 @@ export const ENEMIES = {
     mov: 2,
     rng: 1,
     ai: "guard",
+    trait: "Corpo de lava: seus golpes deixam 🔥 queimadura.",
   },
 
   // ---------- Dojo / O Escolhido (Cap. II) ----------
@@ -314,7 +315,7 @@ export const ENEMIES = {
     mov: 3,
     rng: 1,
     ai: "rusher",
-    trait: "Come o que fere: recupera parte do dano causado.",
+    trait: "Come o que fere: recupera parte do dano causado e 🥀 enfraquece a presa.",
   },
   casulo_trevas: {
     id: "casulo_trevas",

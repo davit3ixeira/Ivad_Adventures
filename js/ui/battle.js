@@ -17,7 +17,9 @@ import { modal, toast } from "./toast.js";
 import { h, hpBar } from "./components.js";
 import { portrait, playSfx } from "../data/manifest.js";
 import { HEROES } from "../data/heroes.js";
+import { STATUS } from "../data/status.js";
 import { key } from "../systems/pathfind.js";
+import { atkStatusMul } from "../systems/status.js";
 import { typeClass, typeLabel, typeIcons } from "../systems/affinity.js";
 import {
   createBattle,
@@ -264,6 +266,11 @@ function unitHTML(u, highlighted, armed) {
       ready ? "<em>✨</em>" : ""
     }</span>`;
   }
+  const stat = Object.keys(u.status || {})
+    .filter((id) => u.status[id] > 0 && STATUS[id])
+    .map((id) => `<i title="${STATUS[id].name} (${u.status[id]})">${STATUS[id].emoji}</i>`)
+    .join("");
+  const statHTML = stat ? `<span class="unit__status">${stat}</span>` : "";
   const buff = u.buffs ? '<span class="unit__buff">▲</span>' : u.guard ? '<span class="unit__buff">🛡️</span>' : "";
 
   let tbar = "";
@@ -278,7 +285,7 @@ function unitHTML(u, highlighted, armed) {
     <div class="unit side-${side} ${isSel} ${done} ${tgtCls} ${armedCls} ${readyCls} ${bigCls} ${formCls}" data-unit="${u.key}">
       ${portrait(u.team === "ally" ? "heroes" : "enemies", artId, u.emoji)}
       <span class="unit__aff aff-${typeClass(u.types)}"></span>
-      ${charge}${tbar}${buff}
+      ${charge}${tbar}${buff}${statHTML}
       <span class="unit__hp ${low ? "is-low" : ""}"><i style="width:${Math.max(0, (u.curHP / u.maxHP) * 100)}%"></i></span>
     </div>`;
 }
@@ -760,9 +767,9 @@ function renderInspectUnit(u) {
     <div class="unit-inspect">
       <div class="name">${typeIcons(u.types)} ${typeLabel(u.types)}${form ? " · 🔥 forma" : ""}</div>
       ${hpBar(u.curHP, u.maxHP)}
-      <div class="muted" style="margin-top:4px; font-size:.8rem">${Math.round(u.curHP)}/${u.maxHP} HP${u.buffs ? " · +ATK" : ""}${u.guard ? " · 🛡️" : ""}</div>
+      <div class="muted" style="margin-top:4px; font-size:.8rem">${Math.round(u.curHP)}/${u.maxHP} HP${u.buffs ? " · +ATK" : ""}${u.guard ? " · 🛡️" : ""}${Object.keys(u.status || {}).filter((id) => u.status[id] > 0 && STATUS[id]).map((id) => ` · ${STATUS[id].emoji} ${STATUS[id].name} (${u.status[id]})`).join("")}</div>
       <div class="grid4">
-        <span><b>${u.stats.atk + (u.buffs?.atk || 0)}</b>ATK</span>
+        <span><b>${Math.round((u.stats.atk + (u.buffs?.atk || 0)) * atkStatusMul(u))}</b>ATK</span>
         <span><b>${u.stats.def}</b>DEF</span>
         <span><b>${u.stats.spd}</b>SPD</span>
         <span><b>${u.stats.mov}</b>MOV</span>
@@ -853,6 +860,7 @@ function enemyTraitText(u) {
   if (t.ignoreWheel) b.push("divino — ignora o triângulo");
   if (t.alwaysCounter) b.push("sempre revida");
   if (t.cleave) b.push(`golpe em área (${Math.round(t.cleave * 100)}%)`);
+  (t.inflict || []).forEach((id) => STATUS[id] && b.push(`causa ${STATUS[id].emoji} ${STATUS[id].name}`));
   return b.join(" · ");
 }
 

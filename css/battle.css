@@ -201,6 +201,14 @@
   border-radius: 5px; padding: 0 3px;
 }
 
+.unit__status {
+  position: absolute; left: -5px; top: -5px;
+  display: flex; gap: 1px; font-size: 0.6rem; line-height: 1;
+  background: var(--bg-0); border: 1px solid var(--hair);
+  border-radius: 5px; padding: 1px 2px; font-style: normal;
+}
+.unit__status i { font-style: normal; }
+
 /* números flutuantes */
 .floater {
   position: absolute; z-index: 30;

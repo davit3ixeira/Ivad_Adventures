@@ -78,6 +78,9 @@ Só a **Live Server** é obrigatória. As outras são conforto de desenvolviment
      **persiste entre as batalhas da run**. Cheia → botão dourado → banner + efeito.
    - **Fusão (beta)** — se **Ivad e Oaoj** estiverem com a barrinha cheia,
      aparece **⚡ FUSÃO**: viram o **Ivão**, do tamanho de um chefe, até o fim da luta.
+   - **Estados de batalha** — 🔥 *Queimadura* (dano por rodada, nunca mata herói),
+     🥀 *Fraqueza* (−25% ATK) e 💫 *Atordoado* (perde a ação; chefes resistem).
+     Vêm de Especiais de heróis e de inimigos com traço; cura/escudo/rally purificam.
 5. A cada vitória: 💠 Fragmentos, 💎 Gemas (moeda da run), talvez uma relíquia
    ou equipamento, e a escolha de **1 de 3 Cartas de Mácula**.
    HP **não** regenera entre batalhas — só em ⛺.
@@ -124,6 +127,7 @@ Ivad_Adventures/
     │   ├── run.js          #   controlador da run: mapa, moedas, relíquias, eventos
     │   ├── mapgen.js       #   geração do mapa de nós ramificados
     │   ├── pathfind.js     #   Dijkstra/BFS no grid, alcances
+    │   ├── status.js       #   estados de batalha (queimadura, fraqueza, atordoado)
     │   ├── affinity.js     #   tipos (físico/projeção/mana), duplo e divino
     │   ├── battle.js       #   modelo de combate tático (turnos, dano, follow-up)
     │   └── ai.js           #   decisão dos inimigos (rusher/kiter/guard/boss)

@@ -13,6 +13,7 @@ import { reachable, manhattan, key } from "./pathfind.js";
 import { affinityMultiplier, affinityState } from "./affinity.js";
 import { planEnemyAction } from "./ai.js";
 import { modList, relicTriggers, pactMods } from "./run.js";
+import { applyStatus, cleanse, atkStatusMul, hasStatus, tickStatuses } from "./status.js";
 
 const GRID_W = 8;
 const GRID_H = 6;
@@ -20,8 +21,9 @@ const MAGMA_DMG = 3;
 
 // traços especiais dos inimigos, por id (ver data/enemies.js para o flavor)
 const ENEMY_TRAITS = {
+  bruto_magma: { inflict: ["burn"] }, // corpo de lava
   huluhuluhu: { double: true }, // dança das sombras
-  holoholoho: { openerBonus: 0.15 }, // aura flamejante
+  holoholoho: { openerBonus: 0.15, inflict: ["burn"] }, // aura flamejante
   hilihilihi: { bulwark: 0.25 }, // névoa de ilusões
   helehelehe: { bulwark: 0.25 }, // pele de ferro
   halahalaha: { double: true, openerBonus: 0.15 }, // reflexos sobrenaturais + ímpeto
@@ -30,7 +32,7 @@ const ENEMY_TRAITS = {
   corrompido_macula: { openerBonus: 0.2 }, // ambição cobra o preço
   // ── novos comandantes / elites (Cap. III–X) ─────────────
   guardiao_alfa: { bulwark: 0.25, omniCounter: true },
-  sombra_faminta: { lifesteal: 0.35 },
+  sombra_faminta: { lifesteal: 0.35, inflict: ["weaken"] },
   carcereiro_deus: { double: true, alwaysCounter: true },
   general_civil: { double: true, cleave: 0.4 },
   fragmento_ivad: { openerBonus: 0.2 },
@@ -46,12 +48,12 @@ const ENEMY_TRAITS = {
   haluhaluhu: { ignoreWheel: true, alwaysCounter: true, rage: 3, cleave: 0.6, bulwark: 0.15 },
   poderoso_rival: { bulwark: 0.25, omniCounter: true, openerBonus: 0.2 },
   alkor_guardiao: { double: true, omniCounter: true, cleave: 0.35 },
-  tordep: { lifesteal: 0.4, rage: 3, cleave: 0.4 },
+  tordep: { lifesteal: 0.4, rage: 3, cleave: 0.4, inflict: ["weaken"] },
   ordep_odranoel: { ignoreWheel: true, bulwark: 0.15, alwaysCounter: true, rage: 3, cleave: 0.55 },
   ivad_reverso: { double: true, alwaysCounter: true, lifesteal: 0.35, cleave: 0.45 },
   mast: { double: true, omniCounter: true, rage: 3, cleave: 0.5 },
   xingzang_associacao: { double: true, alwaysCounter: true, lifesteal: 0.35, cleave: 0.45 },
-  cosmic_ivad: { ignoreWheel: true, bulwark: 0.15, double: true, alwaysCounter: true, rage: 4, cleave: 0.6 },
+  cosmic_ivad: { inflict: ["burn"], ignoreWheel: true, bulwark: 0.15, double: true, alwaysCounter: true, rage: 4, cleave: 0.6 },
 };
 
 // --------------------------------------------------------------- construção
@@ -200,6 +202,7 @@ export function createBattle(run, node) {
         guard: 0,
         buffs: null,
         reflectPending: false,
+        status: {},
         traits: {},
         alive: true,
         acted: false,
@@ -244,6 +247,7 @@ export function createBattle(run, node) {
       stats: { atk: st.atk, def: st.def, spd: st.spd, mov: st.mov, rng: st.rng },
       skill: { type: "none" },
       traits: { ...(ENEMY_TRAITS[slot.def.id] || {}) },
+      status: {},
       alive: true,
       acted: false,
       tookDamage: false,
@@ -329,6 +333,7 @@ export function doFusion(battle) {
     guard: 0,
     buffs: null,
     reflectPending: false,
+    status: {},
     traits: { cleave: 0.35, ignoreWheel: true },
     alive: true,
     acted: false,
@@ -397,7 +402,7 @@ export function allMoveTilesWithTargets(battle, unit) {
 function cloneForSim(battle) {
   return {
     ...battle,
-    units: battle.units.map((u) => ({ ...u, stats: { ...u.stats }, skill: { ...u.skill }, traits: { ...u.traits } })),
+    units: battle.units.map((u) => ({ ...u, stats: { ...u.stats }, skill: { ...u.skill }, traits: { ...u.traits }, status: { ...u.status } })),
     log: [],
     floaters: [],
   };
@@ -422,7 +427,7 @@ function strike(battle, src, tgt, ctx) {
   if (src.traits?.pierce) tgtDef -= src.traits.pierce;
   tgtDef = Math.max(0, tgtDef);
 
-  const srcAtk = src.stats.atk + (src.buffs?.atk || 0);
+  const srcAtk = Math.round((src.stats.atk + (src.buffs?.atk || 0)) * atkStatusMul(src));
   let dmg = Math.max(1, Math.round(srcAtk * mult) - tgtDef);
 
   // multiplicadores ofensivos
@@ -495,6 +500,7 @@ function strike(battle, src, tgt, ctx) {
     }
   }
 
+  if (tgt.curHP > 0 && src.traits?.inflict) src.traits.inflict.forEach((id) => applyStatus(battle, tgt, id));
   handleDeath(battle, tgt, src);
 }
 
@@ -578,6 +584,7 @@ export function resolveHeal(battle, healer, target) {
   target.curHP = Math.min(target.maxHP, target.curHP + amt);
   battle.floaters = [{ x: target.x, y: target.y, text: `+${target.curHP - before}`, kind: "heal" }];
   battle.log.push(`${healer.name} cura ${target.name} (+${target.curHP - before}).`);
+  cleanse(battle, target);
 }
 
 /** Previsão de combate sem alterar o estado real. */
@@ -696,6 +703,13 @@ export async function runEnemyTurn(battle, hooks) {
 
   for (const e of battle.units.filter((u) => u.team === "enemy")) {
     if (!e.alive || battle.over) continue;
+    if (hasStatus(e, "stun")) {
+      battle.log.push(`💫 ${e.name} está atordoado e perde a ação.`);
+      battle.floaters = [{ x: e.x, y: e.y, text: "💫", kind: "dmg" }];
+      hooks.render();
+      await hooks.sleep(300);
+      continue;
+    }
     const plan = planEnemyAction(battle, e);
 
     if (plan.moveTo && (plan.moveTo.x !== e.x || plan.moveTo.y !== e.y)) {
@@ -720,10 +734,17 @@ export async function runEnemyTurn(battle, hooks) {
     if (battle.over) break;
   }
 
+  battle.floaters = [];
+  if (!battle.over) {
+    tickStatuses(battle, (u) => handleDeath(battle, u, null));
+    updateOutcome(battle);
+  }
+
   battle.turn += 1;
   battle.units.forEach((u) => {
     if (u.team === "ally" && u.alive) {
-      u.acted = false;
+      u.acted = !!u.skipNext; // atordoado: perde a ação desta rodada
+      u.skipNext = false;
       u.guard = 0; // o Domo protegeu durante este turno inimigo
       u.reflectPending = false; // Reflexo Total dura um turno
       if (u.forms && (u.transformCharge || 0) < (u.transformMax || 3)) u.transformCharge = (u.transformCharge || 0) + 1;
@@ -735,6 +756,7 @@ export async function runEnemyTurn(battle, hooks) {
   });
   battle.phase = battle.over ? "over" : "player";
   updateOutcome(battle);
+  if (!battle.over && battle.units.filter((u) => u.alive && u.team === "ally").every((u) => u.acted)) battle.autoEndHint = true;
   battle.floaters = [];
   hooks.render();
   return battle.over;
@@ -804,7 +826,7 @@ function specialStrike(battle, src, tgt, power, opts = {}) {
   if (!tgt || !tgt.alive) return 0;
   let m = affinityMultiplier(src.types, tgt.types, tgt.traits?.ignoreWheel || src.traits?.ignoreWheel);
   if (m < 1) m = 1;
-  const atk = src.stats.atk + (src.buffs?.atk || 0);
+  const atk = Math.round((src.stats.atk + (src.buffs?.atk || 0)) * atkStatusMul(src));
   let def = tgt.stats.def * 0.5 + terrainDefBonus(battle.grid.tiles[tgt.y][tgt.x]);
   def = Math.max(0, def - (opts.pierce || 0));
   let dmg = Math.max(1, Math.round(atk * power * m) - Math.round(def));
@@ -820,6 +842,7 @@ function specialStrike(battle, src, tgt, power, opts = {}) {
   battle.floaters.push({ x: tgt.x, y: tgt.y, text: `-${dmg}`, kind: "crit" });
   if (!opts.silent) battle.log.push(`✨ ${src.name} → ${tgt.name}: ${dmg}!`);
   else battle.log.push(`💥 onda de choque atinge ${tgt.name} (${dmg}).`);
+  if (tgt.curHP > 0 && opts.inflict) opts.inflict.forEach((id) => applyStatus(battle, tgt, id));
   handleDeath(battle, tgt, src);
   return dmg;
 }
@@ -891,7 +914,7 @@ export function useActive(battle, unit, aim) {
           unit.y = t.y;
         }
       }
-      specialStrike(battle, unit, tgt, a.power, { pierce: a.pierce || 0 });
+      specialStrike(battle, unit, tgt, a.power, { pierce: a.pierce || 0, inflict: a.inflict });
       affected.push({ x: aim.x, y: aim.y });
       break;
     }
@@ -911,7 +934,7 @@ export function useActive(battle, unit, aim) {
         const tgt = battle.units.find((u) => u.alive && u.team !== unit.team && u.x === c.x && u.y === c.y);
         if (tgt) {
           const center = c.x === aim.x && c.y === aim.y;
-          specialStrike(battle, unit, tgt, a.power * (center ? 1 : 0.8), { pierce: a.pierce || 0 });
+          specialStrike(battle, unit, tgt, a.power * (center ? 1 : 0.8), { pierce: a.pierce || 0, inflict: a.inflict });
         }
       }
       break;
@@ -926,7 +949,7 @@ export function useActive(battle, unit, aim) {
         affected.push({ x, y });
         if (battle.grid.tiles[y][x] === "wall") break;
         const tgt = battle.units.find((u) => u.alive && u.team !== unit.team && u.x === x && u.y === y);
-        if (tgt) specialStrike(battle, unit, tgt, first ? a.power : a.power * (1 - (a.falloff || 0)), { pierce: a.pierce || 0 });
+        if (tgt) specialStrike(battle, unit, tgt, first ? a.power : a.power * (1 - (a.falloff || 0)), { pierce: a.pierce || 0, inflict: a.inflict });
         first = false;
         x += dir.dx;
         y += dir.dy;
@@ -942,6 +965,7 @@ export function useActive(battle, unit, aim) {
         const before = u.curHP;
         u.curHP = Math.min(u.maxHP, u.curHP + Math.round(a.power * u.maxHP));
         if (u.curHP > before) battle.floaters.push({ x: u.x, y: u.y, text: `+${u.curHP - before}`, kind: "heal" });
+        cleanse(battle, u);
         affected.push({ x: u.x, y: u.y });
       }
       // Bênção Divina: reergue os caídos
@@ -965,7 +989,7 @@ export function useActive(battle, unit, aim) {
       battle.units
         .filter((u) => u.alive && u.team === "enemy" && manhattan(u, unit) <= rad)
         .forEach((e) => {
-          specialStrike(battle, unit, e, a.power, { pierce: a.pierce || 0 });
+          specialStrike(battle, unit, e, a.power, { pierce: a.pierce || 0, inflict: a.inflict });
           affected.push({ x: e.x, y: e.y });
         });
       affected.push({ x: unit.x, y: unit.y });
@@ -974,6 +998,7 @@ export function useActive(battle, unit, aim) {
     case "shield": {
       for (const u of battle.units.filter((z) => z.alive && z.team === "ally")) {
         u.guard = 0.4;
+        cleanse(battle, u);
         const before = u.curHP;
         u.curHP = Math.min(u.maxHP, u.curHP + Math.round((a.power || 0.15) * u.maxHP));
         if (u.curHP > before) battle.floaters.push({ x: u.x, y: u.y, text: `+${u.curHP - before}`, kind: "heal" });
@@ -984,6 +1009,7 @@ export function useActive(battle, unit, aim) {
     case "rally": {
       for (const u of battle.units.filter((z) => z.alive && z.team === "ally")) {
         u.buffs = { atk: a.power || 6, turns: 2 };
+        cleanse(battle, u);
         affected.push({ x: u.x, y: u.y });
       }
       break;
@@ -1003,7 +1029,7 @@ export function useActive(battle, unit, aim) {
         .filter((u) => u.alive && u.team !== unit.team && manhattan(u, unit) === 1)
         .sort((p, q) => q.curHP - p.curHP);
       if (adj[0]) {
-        specialStrike(battle, unit, adj[0], a.power, { pierce: a.pierce || 0 });
+        specialStrike(battle, unit, adj[0], a.power, { pierce: a.pierce || 0, inflict: a.inflict });
         affected.push({ x: adj[0].x, y: adj[0].y });
       }
       break;

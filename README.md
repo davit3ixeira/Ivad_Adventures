@@ -156,13 +156,6 @@ Ivad_Adventures/
 - **Estado**: `state.meta` é permanente (salvo sempre); `state.run` é a run atual
   (também salva, para retomar). Um `SAVE_VERSION` invalida saves incompatíveis.
 
-### Quando a arte chegar
-
-Solte os arquivos em `assets/…` e preencha os caminhos em
-[`js/data/manifest.js`](js/data/manifest.js). O resto do código já pede a arte por
-`portrait()` / `asset()` / `playSfx()` e cai no emoji enquanto o arquivo não
-existe. **Nenhuma outra mudança é necessária.**
-
 ---
 
 ## 🔧 Ajustes rápidos de balanceamento
